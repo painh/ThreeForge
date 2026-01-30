@@ -22,7 +22,13 @@
     "preview": "vite preview"
   },
   "peerDependencies": {
-    "three": ">=0.150.0"
+    "three": ">=0.150.0",
+    "three-mesh-ui": ">=6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "three-mesh-ui": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/three": "^0.160.0",

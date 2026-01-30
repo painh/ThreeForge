@@ -8,9 +8,8 @@ export interface EntityOptions {
   active?: boolean;
 }
 
-export type ComponentClass<T extends Component = Component> = new (
-  ...args: unknown[]
-) => T;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ComponentClass<T extends Component = Component> = new (...args: any[]) => T;
 
 export interface EntityQuery {
   tags?: string[];
