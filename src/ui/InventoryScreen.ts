@@ -73,26 +73,10 @@ export class InventoryScreen extends THREE.Object3D {
         onSlotRightClick: (slotId, item) => this.handleEquipSlotRightClick(slotId, item),
       });
 
-      // 장비창과 인벤토리를 좌우로 배치, 상단 정렬
-      // 장비창: 3행 기준 (slotSize=50, slotGap=4, padding=8) => 높이 약 1.78, 너비 약 1.78 (3열)
-      // 인벤토리: 6행 x 8열 기준 => 높이 약 3.4, 너비 약 4.4
-      const equipWidth = 1.78;
-      const equipHeight = 1.78;
-      const invWidth = 4.4;
-      const invHeight = 3.4;
-      const gap = 0.15;
-
-      // 상단 정렬: 두 UI의 top을 맞춤
-      const topY = Math.max(equipHeight, invHeight) / 2;
-
-      // 장비창 (왼쪽), 인벤토리 (오른쪽)
-      const totalWidth = equipWidth + gap + invWidth;
-      const leftX = -totalWidth / 2 + equipWidth / 2;
-      const rightX = -totalWidth / 2 + equipWidth + gap + invWidth / 2;
-
-      // 상단 정렬: 각 UI의 중심 Y를 상단 기준으로 계산
-      this.equipmentUI.position.set(leftX, topY - equipHeight / 2, 0);
-      this.inventoryUI.position.set(rightX, topY - invHeight / 2, 0);
+      // 장비창(위)과 인벤토리(아래) 세로 배치
+      // 장비창: 위쪽, 인벤토리: 아래쪽
+      this.equipmentUI.position.set(0, 1.8, 0);
+      this.inventoryUI.position.set(0, -1.0, 0);
 
       this.add(this.equipmentUI);
     } else {

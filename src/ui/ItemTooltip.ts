@@ -1,120 +1,46 @@
 import * as THREE from 'three';
 import { Item } from '../inventory/Item';
 import { UITheme, DEFAULT_UI_THEME, mergeTheme } from './UITheme';
-import { UIPanel, UIText, UIBox } from '../../../three-troika-ui/src';
-
-// 픽셀을 UI 단위로 변환
-const PX = 0.01;
-const TOOLTIP_WIDTH = 200 * PX;
+import { UITooltip, TooltipLine } from '../../../three-troika-ui/src';
 
 export interface ItemTooltipConfig {
   theme?: Partial<UITheme>;
+  /** 화면 경계 (카메라 뷰 크기) */
+  viewBounds?: { width: number; height: number };
+  /** 슬롯으로부터 떨어질 거리 */
+  offset?: { x: number; y: number };
 }
 
+// 픽셀을 UI 단위로 변환
+const PX = 0.01;
+
 /**
- * 디아블로 스타일 아이템 툴팁 (troika-ui 기반)
+ * 디아블로 스타일 아이템 툴팁 (UITooltip 기반)
  */
 export class ItemTooltip extends THREE.Object3D {
   private theme: UITheme;
-  private container: UIPanel;
-  private borderBox: UIBox;
+  private tooltip: UITooltip;
   private currentItem: Item | null = null;
-
-  // 툴팁 내부 요소들
-  private nameText: UIText;
-  private typeText: UIText;
-  private statsContainer: UIPanel;
-  private statTexts: UIText[] = [];
-  private descText: UIText;
-  private divider: UIBox;
-
-  private static readonly MAX_STATS = 6;
 
   constructor(config: ItemTooltipConfig = {}) {
     super();
 
     this.theme = mergeTheme(DEFAULT_UI_THEME, config.theme ?? {});
 
-    // 테두리 박스 (별도로 관리해서 색상 변경 가능)
-    this.borderBox = new UIBox({
-      width: TOOLTIP_WIDTH,
-      height: 180 * PX,
-      color: 0x1a1a1a,
-      opacity: 0.95,
-      borderRadius: 4 * PX,
-      borderWidth: 2 * PX,
+    this.tooltip = new UITooltip({
+      backgroundColor: 0x1a1a1a,
+      backgroundOpacity: 0.95,
       borderColor: 0x444444,
+      borderWidth: 2 * PX,
+      borderRadius: 4 * PX,
+      padding: 10 * PX,
+      maxWidth: 250 * PX,
+      fontSize: 12 * PX,
+      textColor: 0xffffff,
+      viewBounds: config.viewBounds ?? { width: 20, height: 15 },
+      offset: config.offset ?? { x: 0.6, y: 0.3 },
     });
-    this.add(this.borderBox);
-
-    // 메인 컨테이너
-    this.container = new UIPanel({
-      width: TOOLTIP_WIDTH - 20 * PX,
-      height: 160 * PX,
-      padding: 5 * PX,
-      gap: 3 * PX,
-      direction: 'vertical',
-      justify: 'start',
-      align: 'center',
-    });
-    this.container.position.z = 0.01;
-    this.add(this.container);
-
-    // 아이템 이름
-    this.nameText = new UIText({
-      text: '',
-      fontSize: 14 * PX,
-      color: 0xffffff,
-      anchorX: 'center',
-      anchorY: 'middle',
-    });
-    this.container.addChild(this.nameText);
-
-    // 아이템 타입/슬롯
-    this.typeText = new UIText({
-      text: '',
-      fontSize: 10 * PX,
-      color: 0x888888,
-      anchorX: 'center',
-      anchorY: 'middle',
-    });
-    this.container.addChild(this.typeText);
-
-    // 구분선
-    this.divider = new UIBox({
-      width: TOOLTIP_WIDTH - 30 * PX,
-      height: 1 * PX,
-      color: 0x444444,
-      opacity: 1,
-    });
-    this.container.addChild(this.divider);
-
-    // 스탯 컨테이너
-    this.statsContainer = new UIPanel({
-      width: TOOLTIP_WIDTH - 30 * PX,
-      height: 80 * PX,
-      gap: 2 * PX,
-      direction: 'vertical',
-      justify: 'start',
-      align: 'start',
-    });
-    this.container.addChild(this.statsContainer);
-
-    // 스탯 텍스트 미리 생성
-    this.createStatTexts();
-
-    // 설명
-    this.descText = new UIText({
-      text: '',
-      fontSize: 10 * PX,
-      color: 0xaaaaaa,
-      anchorX: 'center',
-      anchorY: 'middle',
-    });
-    this.container.addChild(this.descText);
-
-    // 기본적으로 숨김
-    this.visible = false;
+    this.add(this.tooltip);
 
     // renderOrder 설정
     this.setRenderOrder(300);
@@ -124,36 +50,16 @@ export class ItemTooltip extends THREE.Object3D {
    * 렌더 순서 설정
    */
   private setRenderOrder(order: number): void {
-    this.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        mesh.renderOrder = order;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((mat) => {
-          if (mat) {
-            mat.depthTest = true;
-            mat.depthWrite = true;
-          }
-        });
-      }
-    });
+    // UITooltip의 setRenderOrder 호출
+    this.tooltip.setRenderOrder(order);
   }
 
   /**
-   * 스탯 텍스트 미리 생성
+   * 화면 경계 설정
    */
-  private createStatTexts(): void {
-    for (let i = 0; i < ItemTooltip.MAX_STATS; i++) {
-      const statText = new UIText({
-        text: ' ',
-        fontSize: 11 * PX,
-        color: 0xffffff,
-        anchorX: 'left',
-        anchorY: 'middle',
-      });
-      this.statsContainer.addChild(statText);
-      this.statTexts.push(statText);
-    }
+  setViewBounds(width: number, height: number): this {
+    this.tooltip.setViewBounds(width, height);
+    return this;
   }
 
   /**
@@ -170,23 +76,44 @@ export class ItemTooltip extends THREE.Object3D {
     // 레어리티 색상
     const rarityColor = this.theme.rarityColors[item.rarity] ?? this.theme.rarityColors.common;
 
-    // 이름 업데이트
-    this.nameText.setText(item.name);
-    this.nameText.setColor(rarityColor);
+    // 툴팁 라인 생성
+    const lines: TooltipLine[] = [];
 
-    // 타입 업데이트
+    // 이름
+    lines.push({
+      text: item.name,
+      color: rarityColor,
+      fontSize: 14 * PX,
+    });
+
+    // 타입
     const typeStr = this.getItemTypeString(item);
-    this.typeText.setText(typeStr);
+    lines.push({
+      text: typeStr,
+      color: 0x888888,
+      fontSize: 10 * PX,
+    });
 
-    // 스탯 업데이트
-    this.updateStats(item);
+    // 구분선
+    lines.push({ text: '─────────────', color: 0x444444, fontSize: 8 * PX });
 
-    // 설명 업데이트
-    this.descText.setText(item.description || '');
+    // 스탯
+    const statLines = this.getStatLines(item);
+    lines.push(...statLines);
 
-    // 테두리 색상을 레어리티에 맞게
-    this.borderBox.setBorder(2 * PX, rarityColor);
+    // 설명
+    if (item.description) {
+      lines.push({ text: '', fontSize: 6 * PX }); // 간격
+      lines.push({
+        text: item.description,
+        color: 0xaaaaaa,
+        fontSize: 10 * PX,
+      });
+    }
 
+    // 테두리 색상 변경
+    this.tooltip.setBorderColor(rarityColor);
+    this.tooltip.setContent(lines);
     this.visible = true;
     this.setRenderOrder(300);
   }
@@ -216,9 +143,9 @@ export class ItemTooltip extends THREE.Object3D {
   }
 
   /**
-   * 스탯 표시 업데이트
+   * 스탯 라인 생성
    */
-  private updateStats(item: Item): void {
+  private getStatLines(item: Item): TooltipLine[] {
     const statNames: Record<string, { name: string; color: number }> = {
       attack: { name: '+{value} Attack', color: 0xff6666 },
       defense: { name: '+{value} Defense', color: 0x6666ff },
@@ -228,38 +155,27 @@ export class ItemTooltip extends THREE.Object3D {
       critDamage: { name: '+{value}% Crit Damage', color: 0xff6699 },
     };
 
-    // 스탯 정보 수집
-    const stats: { content: string; color: number }[] = [];
+    const lines: TooltipLine[] = [];
     if (item.stats) {
       for (const [stat, value] of Object.entries(item.stats)) {
         if (value === undefined || value === 0) continue;
         const statInfo = statNames[stat];
         if (!statInfo) continue;
-        stats.push({
-          content: statInfo.name.replace('{value}', value.toString()),
+        lines.push({
+          text: statInfo.name.replace('{value}', value.toString()),
           color: statInfo.color,
+          fontSize: 11 * PX,
         });
       }
     }
-
-    // 모든 스탯 텍스트 업데이트
-    for (let i = 0; i < this.statTexts.length; i++) {
-      const statText = this.statTexts[i];
-      if (i < stats.length) {
-        statText.setText(stats[i].content);
-        statText.setColor(stats[i].color);
-      } else {
-        // 사용하지 않는 슬롯은 공백으로 설정
-        statText.setText(' ');
-        statText.setColor(0x000000);
-      }
-    }
+    return lines;
   }
 
   /**
    * 툴팁 숨기기
    */
   hide(): void {
+    this.tooltip.hide();
     this.visible = false;
     this.currentItem = null;
   }
@@ -272,29 +188,22 @@ export class ItemTooltip extends THREE.Object3D {
   }
 
   /**
-   * 툴팁 위치 설정 (로컬 좌표)
+   * 툴팁 위치 설정 (슬롯 위치 기준 - 로컬 좌표)
+   * 화면 경계를 고려하여 자동 조절됨
    */
   setLocalPosition(x: number, y: number): void {
-    this.position.set(x, y, 15);
+    this.tooltip.setAnchorPosition(x, y);
+    this.position.z = 15;
   }
 
   /**
    * UI 업데이트
    */
   update(): void {
-    // troika-ui는 자동 업데이트되므로 별도 작업 불필요
+    // 자동 업데이트
   }
 
   dispose(): void {
-    this.nameText.dispose();
-    this.typeText.dispose();
-    this.descText.dispose();
-    this.divider.dispose();
-    for (const statText of this.statTexts) {
-      statText.dispose();
-    }
-    this.statsContainer.dispose();
-    this.container.dispose();
-    this.borderBox.dispose();
+    this.tooltip.dispose();
   }
 }
