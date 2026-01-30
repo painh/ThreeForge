@@ -1,46 +1,11 @@
 import * as THREE from 'three';
-import ThreeMeshUI from 'three-mesh-ui';
 import { Equipment } from '../inventory/Equipment';
 import { Item } from '../inventory/Item';
 import { UITheme, DEFAULT_UI_THEME, mergeTheme } from './UITheme';
+import { UIPanel, UIText, UIBox, UIImage } from '../../../three-troika-ui/src';
 
-// 텍스처 캐시
-const textureCache: Map<string, THREE.Texture> = new Map();
-const textureLoader = new THREE.TextureLoader();
-const pendingLoads: Set<string> = new Set();
-
-function loadTexture(url: string, onLoaded?: () => void): THREE.Texture | null {
-  // 이미 캐시에 있으면 바로 반환 (콜백 호출 안 함)
-  if (textureCache.has(url)) {
-    return textureCache.get(url)!;
-  }
-
-  // 이미 로드 중이면 스킵
-  if (pendingLoads.has(url)) {
-    return null;
-  }
-  pendingLoads.add(url);
-
-  textureLoader.load(
-    url,
-    (texture) => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      textureCache.set(url, texture);
-      pendingLoads.delete(url);
-      // 로드 완료 시 콜백 호출 (한 번만)
-      if (onLoaded) {
-        onLoaded();
-      }
-    },
-    undefined,
-    () => {
-      console.warn('Failed to load texture:', url);
-      pendingLoads.delete(url);
-    }
-  );
-
-  return null;
-}
+// 픽셀을 UI 단위로 변환 (1 unit = 100px 기준)
+const PX = 0.01;
 
 export interface EquipmentSlotPosition {
   slotId: string;
@@ -62,25 +27,19 @@ export interface EquipmentUIConfig {
 
 interface EquipSlotUI {
   slotId: string;
-  container: ThreeMeshUI.Block;
-  background: ThreeMeshUI.Block;
-  labelText: ThreeMeshUI.Text;
-  itemIcon?: THREE.Sprite;
+  container: UIBox;
+  labelText: UIText;
+  itemIcon?: UIImage;
 }
 
-// three-mesh-ui Block set 메서드 타입 헬퍼
-type BlockWithSet = ThreeMeshUI.Block & { set: (props: Record<string, unknown>) => void };
-
-// 픽셀을 three-mesh-ui 단위로 변환 (1 unit = 100px 기준)
-const PX = 0.01;
-
 /**
- * 장비 UI (디아블로 스타일 캐릭터 장비창)
+ * 장비 UI (디아블로 스타일 캐릭터 장비창) - troika-ui 기반
  */
 export class EquipmentUI extends THREE.Object3D {
   private equipment: Equipment;
   private theme: UITheme;
-  private container: ThreeMeshUI.Block;
+  private container: UIPanel;
+  private backgroundBox: UIBox;
   private slotUIs: Map<string, EquipSlotUI> = new Map();
 
   private onSlotClick?: (slotId: string, item: Item | null) => void;
@@ -96,7 +55,32 @@ export class EquipmentUI extends THREE.Object3D {
     this.onSlotClick = config.onSlotClick;
     this.onSlotRightClick = config.onSlotRightClick;
 
-    this.container = this.createContainer(config.cols, config.rows);
+    const { backgroundColor, backgroundOpacity, borderRadius, padding, slotSize, slotGap } = this.theme;
+
+    const totalWidth = config.cols * slotSize + (config.cols + 1) * slotGap + padding * 2;
+    const totalHeight = config.rows * slotSize + (config.rows + 1) * slotGap + padding * 2;
+
+    // 배경 박스
+    this.backgroundBox = new UIBox({
+      width: totalWidth * PX,
+      height: totalHeight * PX,
+      color: backgroundColor,
+      opacity: backgroundOpacity,
+      borderRadius: borderRadius * PX,
+    });
+    this.add(this.backgroundBox);
+
+    // 메인 컨테이너
+    this.container = new UIPanel({
+      width: totalWidth * PX,
+      height: totalHeight * PX,
+      padding: padding * PX,
+      gap: slotGap * PX,
+      direction: 'vertical',
+      justify: 'center',
+      align: 'center',
+    });
+    this.container.position.z = 0.01;
     this.add(this.container);
 
     this.createSlots(config.layout, config.cols, config.rows);
@@ -104,27 +88,6 @@ export class EquipmentUI extends THREE.Object3D {
 
     // 장비 변경 이벤트 구독
     this.equipment.on('changed', () => this.refresh());
-  }
-
-  private createContainer(cols: number, rows: number): ThreeMeshUI.Block {
-    const { backgroundColor, backgroundOpacity, borderRadius, padding, slotSize, slotGap } = this.theme;
-
-    const totalWidth = cols * slotSize + (cols + 1) * slotGap + padding * 2;
-    const totalHeight = rows * slotSize + (rows + 1) * slotGap + padding * 2;
-
-    return new ThreeMeshUI.Block({
-      width: totalWidth * PX,
-      height: totalHeight * PX,
-      padding: padding * PX,
-      backgroundColor: new THREE.Color(backgroundColor),
-      backgroundOpacity,
-      borderRadius: borderRadius * PX,
-      fontFamily: '/fonts/Roboto-msdf.json',
-      fontTexture: '/fonts/Roboto-msdf.png',
-      justifyContent: 'center',
-      alignItems: 'center',
-      contentDirection: 'column',
-    });
   }
 
   private createSlots(layout: EquipmentSlotPosition[], cols: number, rows: number): void {
@@ -146,15 +109,15 @@ export class EquipmentUI extends THREE.Object3D {
       }
     }
 
-    // 행별로 Block 생성
+    // 행별로 Panel 생성
     for (let r = 0; r < rows; r++) {
-      const rowBlock = new ThreeMeshUI.Block({
-        width: (cols * slotSize + (cols + 1) * slotGap) * PX,
-        height: (slotSize + slotGap) * PX,
-        contentDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundOpacity: 0,
+      const rowPanel = new UIPanel({
+        width: (cols * slotSize + (cols - 1) * slotGap) * PX,
+        height: slotSize * PX,
+        gap: slotGap * PX,
+        direction: 'horizontal',
+        justify: 'center',
+        align: 'center',
       });
 
       for (let c = 0; c < cols; c++) {
@@ -164,65 +127,62 @@ export class EquipmentUI extends THREE.Object3D {
           const slotConfig = this.equipment.getSlotConfig(pos.slotId);
           if (!slotConfig) {
             // 빈 슬롯 공간
-            const emptySpace = new ThreeMeshUI.Block({
+            const emptySpace = new UIBox({
               width: slotSize * PX,
               height: slotSize * PX,
-              margin: (slotGap / 2) * PX,
-              backgroundOpacity: 0,
+              color: 0x000000,
+              opacity: 0,
             });
-            rowBlock.add(emptySpace);
+            rowPanel.addChild(emptySpace);
             continue;
           }
 
-          // 슬롯 컨테이너 (라벨 + 배경)
-          const slotContainer = new ThreeMeshUI.Block({
+          // 슬롯 컨테이너
+          const slotBox = new UIBox({
             width: slotSize * PX,
             height: slotSize * PX,
-            margin: (slotGap / 2) * PX,
-            backgroundColor: new THREE.Color(slotEmptyColor),
-            backgroundOpacity: 1,
+            color: slotEmptyColor,
+            opacity: 1,
             borderRadius: borderRadius * PX,
-            justifyContent: 'center',
-            alignItems: 'center',
-            contentDirection: 'column',
           });
 
           // 슬롯 ID 저장 (인터랙션용)
           /* eslint-disable @typescript-eslint/no-explicit-any */
-          (slotContainer as any).slotId = pos.slotId;
-          (slotContainer as any).isEquipSlot = true;
+          (slotBox as any).slotId = pos.slotId;
+          (slotBox as any).isEquipSlot = true;
           /* eslint-enable @typescript-eslint/no-explicit-any */
 
           // 슬롯 라벨 (슬롯 이름 전체 표시)
-          const labelText = new ThreeMeshUI.Text({
-            content: slotConfig.name,
+          const labelText = new UIText({
+            text: slotConfig.name,
             fontSize: (fontSize - 6) * PX,
-            fontColor: new THREE.Color(fontColor),
+            color: fontColor,
+            anchorX: 'center',
+            anchorY: 'middle',
           });
-
-          slotContainer.add(labelText);
+          labelText.position.z = 0.01;
+          slotBox.add(labelText);
 
           this.slotUIs.set(pos.slotId, {
             slotId: pos.slotId,
-            container: slotContainer,
-            background: slotContainer,
+            container: slotBox,
             labelText,
           });
 
-          rowBlock.add(slotContainer);
+          rowPanel.addChild(slotBox);
         } else {
           // 빈 슬롯 공간
-          const emptySpace = new ThreeMeshUI.Block({
+          const emptySpace = new UIBox({
             width: slotSize * PX,
             height: slotSize * PX,
-            margin: (slotGap / 2) * PX,
-            backgroundOpacity: 0,
+            color: 0x000000,
+            opacity: 0,
           });
-          rowBlock.add(emptySpace);
+          rowPanel.addChild(emptySpace);
         }
       }
 
-      this.container.add(rowBlock);
+      this.container.addChild(rowPanel);
     }
   }
 
@@ -237,59 +197,42 @@ export class EquipmentUI extends THREE.Object3D {
 
       // 기존 아이템 아이콘 제거
       if (slotUI.itemIcon) {
-        slotUI.background.remove(slotUI.itemIcon);
-        slotUI.itemIcon.material.dispose();
+        slotUI.container.remove(slotUI.itemIcon);
+        slotUI.itemIcon.dispose();
         slotUI.itemIcon = undefined;
       }
 
-      // 라벨 다시 추가 (아이콘 제거 시 같이 제거될 수 있음)
       const slotConfig = this.equipment.getSlotConfig(slotId);
 
       if (item) {
         const rarityColor = rarityColors[item.rarity] ?? rarityColors.common;
 
-        (slotUI.background as BlockWithSet).set({
-          backgroundColor: new THREE.Color(slotColor),
-          borderWidth: 2 * PX,
-          borderColor: new THREE.Color(rarityColor),
-        });
+        slotUI.container.setColor(slotColor);
+        slotUI.container.setBorder(2 * PX, rarityColor);
 
-        // 아이콘 텍스처 로드 (로드 완료 시 refresh 콜백)
-        const iconUrl = item.icon;
-        const texture = iconUrl ? loadTexture(iconUrl, () => this.refresh()) : null;
-
-        // THREE.Sprite로 아이콘 표시
-        if (texture) {
+        // 아이콘 표시
+        if (item.icon) {
           const iconSize = (slotSize - 12) * PX;
-          const spriteMaterial = new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true,
+          const icon = new UIImage({
+            width: iconSize,
+            height: iconSize,
+            texture: item.icon,
           });
-          const sprite = new THREE.Sprite(spriteMaterial);
-          sprite.scale.set(iconSize, iconSize, 1);
-          sprite.position.set(0, 0, 0.01);
-          slotUI.itemIcon = sprite;
-          slotUI.background.add(sprite);
+          icon.position.z = 0.01;
+          slotUI.itemIcon = icon;
+          slotUI.container.add(icon);
         }
 
         // 라벨은 빈 문자열로 (아이콘이 대신함)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (slotUI.labelText as any).set({
-          content: '',
-        });
+        slotUI.labelText.setText('');
       } else {
-        (slotUI.background as BlockWithSet).set({
-          backgroundColor: new THREE.Color(slotEmptyColor),
-          borderWidth: 0,
-        });
+        slotUI.container.setColor(slotEmptyColor);
+        slotUI.container.setBorder(0, 0x000000);
 
         // 슬롯 이름으로 복원
         if (slotConfig) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (slotUI.labelText as any).set({
-            content: slotConfig.name,
-            fontColor: new THREE.Color(fontColor),
-          });
+          slotUI.labelText.setText(slotConfig.name);
+          slotUI.labelText.setColor(fontColor);
         }
       }
     }
@@ -306,9 +249,7 @@ export class EquipmentUI extends THREE.Object3D {
     this.hoveredSlot = slotId;
     const slotUI = this.slotUIs.get(slotId);
     if (slotUI) {
-      (slotUI.background as BlockWithSet).set({
-        backgroundColor: new THREE.Color(this.theme.slotHoverColor),
-      });
+      slotUI.container.setColor(this.theme.slotHoverColor);
     }
   }
 
@@ -325,13 +266,9 @@ export class EquipmentUI extends THREE.Object3D {
     if (!slotUI) return;
 
     if (item) {
-      (slotUI.background as BlockWithSet).set({
-        backgroundColor: new THREE.Color(this.theme.slotColor),
-      });
+      slotUI.container.setColor(this.theme.slotColor);
     } else {
-      (slotUI.background as BlockWithSet).set({
-        backgroundColor: new THREE.Color(this.theme.slotEmptyColor),
-      });
+      slotUI.container.setColor(this.theme.slotEmptyColor);
     }
   }
 
@@ -354,7 +291,7 @@ export class EquipmentUI extends THREE.Object3D {
   getInteractiveObjects(): THREE.Object3D[] {
     const objects: THREE.Object3D[] = [];
     for (const slotUI of this.slotUIs.values()) {
-      objects.push(slotUI.background);
+      objects.push(...slotUI.container.getInteractiveMeshes());
     }
     return objects;
   }
@@ -363,13 +300,22 @@ export class EquipmentUI extends THREE.Object3D {
    * UI 업데이트
    */
   update(): void {
-    ThreeMeshUI.update();
+    // troika-ui는 자동 업데이트
   }
 
   dispose(): void {
     this.equipment.off('changed', () => this.refresh());
-    this.container.clear();
-    this.remove(this.container);
+
+    for (const slotUI of this.slotUIs.values()) {
+      if (slotUI.itemIcon) {
+        slotUI.itemIcon.dispose();
+      }
+      slotUI.labelText.dispose();
+      slotUI.container.dispose();
+    }
+
+    this.container.dispose();
+    this.backgroundBox.dispose();
   }
 }
 

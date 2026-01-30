@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import ThreeMeshUI from 'three-mesh-ui';
 import { InventoryComponent } from '../inventory/InventoryComponent';
 import { Item } from '../inventory/Item';
 import { InventoryGridUI } from './InventoryGridUI';
@@ -337,9 +336,7 @@ export class InventoryScreen extends THREE.Object3D {
    * UI 업데이트 (매 프레임 호출)
    */
   update(): void {
-    if (this._visible) {
-      ThreeMeshUI.update();
-    }
+    // troika-ui는 자동 업데이트
   }
 
   dispose(): void {
