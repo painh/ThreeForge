@@ -137,7 +137,7 @@ export class InventoryGridUI extends THREE.Object3D {
    * UI 새로고침 (아이템 표시 업데이트)
    */
   refresh(): void {
-    const { slotSize, slotColor, slotEmptyColor, rarityColors } = this.theme;
+    const { slotSize, slotGap, slotColor, slotEmptyColor, rarityColors } = this.theme;
 
     // 모든 슬롯 초기화
     for (let y = 0; y < this.inventory.height; y++) {
@@ -169,7 +169,7 @@ export class InventoryGridUI extends THREE.Object3D {
           slot.container.setColor(slotColor);
           slot.container.setBorder(2 * PX, rarityColor);
 
-          // 아이콘 표시
+          // 아이콘 표시 (멀티 슬롯 아이템은 중심에 배치)
           if (item.icon) {
             const iconSize = (slotSize - 8) * PX;
             const icon = new UIImage({
@@ -177,7 +177,10 @@ export class InventoryGridUI extends THREE.Object3D {
               height: iconSize,
               texture: item.icon,
             });
-            icon.position.z = 0.01;
+            // 멀티 슬롯 아이템의 경우 아이템 전체 크기의 중심에 배치
+            const offsetX = (item.width - 1) * (slotSize + slotGap) / 2 * PX;
+            const offsetY = -(item.height - 1) * (slotSize + slotGap) / 2 * PX;
+            icon.position.set(offsetX, offsetY, 0.01);
             slot.itemIcon = icon;
             slot.container.add(icon);
           }
@@ -211,9 +214,11 @@ export class InventoryGridUI extends THREE.Object3D {
             slot.container.add(qtyText);
           }
         } else if (item) {
-          // 아이템의 일부 영역 (시작 위치가 아닌 경우)
+          // 아이템의 일부 영역 (시작 위치가 아닌 경우) - 시작 슬롯과 동일하게 표시
+          const rarityColor = rarityColors[item.rarity] ?? rarityColors.common;
           slot.container.setColor(slotColor);
-          slot.container.setOpacity(0.5);
+          slot.container.setBorder(2 * PX, rarityColor);
+          slot.container.setOpacity(1);
         } else {
           // 빈 슬롯
           slot.container.setColor(slotEmptyColor);
@@ -299,6 +304,17 @@ export class InventoryGridUI extends THREE.Object3D {
       }
     }
     return objects;
+  }
+
+  /**
+   * 특정 슬롯의 월드 위치 반환
+   */
+  getSlotWorldPosition(x: number, y: number): THREE.Vector3 {
+    const worldPos = new THREE.Vector3();
+    if (y >= 0 && y < this.slots.length && x >= 0 && x < this.slots[y].length) {
+      this.slots[y][x].container.getWorldPosition(worldPos);
+    }
+    return worldPos;
   }
 
   /**

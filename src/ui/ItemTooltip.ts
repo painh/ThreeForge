@@ -13,6 +13,8 @@ export interface ItemTooltipConfig {
 
 // 픽셀을 UI 단위로 변환
 const PX = 0.01;
+// 툴팁 크기 배율
+const TOOLTIP_SCALE = 3;
 
 /**
  * 디아블로 스타일 아이템 툴팁 (UITooltip 기반)
@@ -31,11 +33,11 @@ export class ItemTooltip extends THREE.Object3D {
       backgroundColor: 0x1a1a1a,
       backgroundOpacity: 0.95,
       borderColor: 0x444444,
-      borderWidth: 2 * PX,
-      borderRadius: 4 * PX,
-      padding: 10 * PX,
-      maxWidth: 250 * PX,
-      fontSize: 12 * PX,
+      borderWidth: 2 * PX * TOOLTIP_SCALE,
+      borderRadius: 4 * PX * TOOLTIP_SCALE,
+      padding: 10 * PX * TOOLTIP_SCALE,
+      maxWidth: 250 * PX * TOOLTIP_SCALE,
+      fontSize: 12 * PX * TOOLTIP_SCALE,
       textColor: 0xffffff,
       // viewBounds 비활성화 - 직접 위치 설정
       offset: config.offset ?? { x: 0.3, y: 0.3 },
@@ -86,7 +88,7 @@ export class ItemTooltip extends THREE.Object3D {
     lines.push({
       text: item.name,
       color: rarityColor,
-      fontSize: 14 * PX,
+      fontSize: 14 * PX * TOOLTIP_SCALE,
     });
 
     // 타입
@@ -94,11 +96,11 @@ export class ItemTooltip extends THREE.Object3D {
     lines.push({
       text: typeStr,
       color: 0x888888,
-      fontSize: 10 * PX,
+      fontSize: 10 * PX * TOOLTIP_SCALE,
     });
 
     // 구분선
-    lines.push({ text: '─────────────', color: 0x444444, fontSize: 8 * PX });
+    lines.push({ text: '─────────────', color: 0x444444, fontSize: 8 * PX * TOOLTIP_SCALE });
 
     // 스탯
     const statLines = this.getStatLines(item);
@@ -106,11 +108,11 @@ export class ItemTooltip extends THREE.Object3D {
 
     // 설명
     if (item.description) {
-      lines.push({ text: '', fontSize: 6 * PX }); // 간격
+      lines.push({ text: '', fontSize: 6 * PX * TOOLTIP_SCALE }); // 간격
       lines.push({
         text: item.description,
         color: 0xaaaaaa,
-        fontSize: 10 * PX,
+        fontSize: 10 * PX * TOOLTIP_SCALE,
       });
     }
 
@@ -167,7 +169,7 @@ export class ItemTooltip extends THREE.Object3D {
         lines.push({
           text: statInfo.name.replace('{value}', value.toString()),
           color: statInfo.color,
-          fontSize: 11 * PX,
+          fontSize: 11 * PX * TOOLTIP_SCALE,
         });
       }
     }

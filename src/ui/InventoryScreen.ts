@@ -332,6 +332,13 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
+   * 인벤토리 슬롯의 월드 위치 반환
+   */
+  getInventorySlotWorldPosition(x: number, y: number): THREE.Vector3 {
+    return this.inventoryUI.getSlotWorldPosition(x, y);
+  }
+
+  /**
    * UI 업데이트 (매 프레임 호출)
    */
   update(): void {
