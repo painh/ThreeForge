@@ -15,6 +15,8 @@ export interface ItemTooltipConfig {
 const PX = 0.01;
 // 툴팁 크기 배율
 const TOOLTIP_SCALE = 3;
+// 툴팁 Z 인덱스
+const TOOLTIP_Z_INDEX = 10;
 
 /**
  * 디아블로 스타일 아이템 툴팁 (UITooltip 기반)
@@ -194,18 +196,22 @@ export class ItemTooltip extends THREE.Object3D {
 
   /**
    * 툴팁 위치 설정 (슬롯 위치 기준 - 로컬 좌표)
-   * 디아블로 스타일: 슬롯 상단(y + height/2)에 툴팁 하단이 맞춰짐
+   * 디아블로 스타일: 슬롯 상단에 툴팁이 배치됨
    */
   setLocalPosition(slotX: number, slotY: number): void {
-    // 슬롯 높이의 절반 (80 * 0.01 / 2 = 0.4)
-    const slotHalfHeight = 0.4;
+    // 테마에서 슬롯 높이 가져옴
+    const slotHeight = this.theme.slotSize * PX;
+    // 툴팁 콘텐츠 높이 (UITooltip 배경의 중심이 기준이므로 절반 필요)
+    const tooltipHalfHeight = this.tooltip.getContentHeight() / 2;
 
-    // 슬롯 상단에 툴팁 하단이 맞춤
+    // 슬롯 상단에 툴팁 배치
+    // 1. slotY는 슬롯 중심 좌표
+    // 2. slotHeight/2를 더해서 슬롯 상단으로 이동
+    // 3. tooltipHalfHeight를 더해서 툴팁 하단이 슬롯 상단에 오도록 함
     const tooltipX = slotX;
-    const tooltipY = slotY + slotHalfHeight;
+    const tooltipY = slotY + slotHeight / 2 + tooltipHalfHeight;
 
-    // 직접 position 설정 (UITooltip의 viewBounds 로직 우회)
-    this.position.set(tooltipX, tooltipY, 10);
+    this.position.set(tooltipX, tooltipY, TOOLTIP_Z_INDEX);
   }
 
   /**
