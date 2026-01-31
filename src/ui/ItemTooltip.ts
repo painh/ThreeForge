@@ -37,8 +37,8 @@ export class ItemTooltip extends THREE.Object3D {
       maxWidth: 250 * PX,
       fontSize: 12 * PX,
       textColor: 0xffffff,
-      viewBounds: config.viewBounds ?? { width: 20, height: 15 },
-      offset: config.offset ?? { x: 0.6, y: 0.3 },
+      // viewBounds 비활성화 - 직접 위치 설정
+      offset: config.offset ?? { x: 0.3, y: 0.3 },
     });
     this.add(this.tooltip);
 
@@ -70,6 +70,9 @@ export class ItemTooltip extends THREE.Object3D {
       this.hide();
       return;
     }
+
+    // 같은 아이템이면 스킵
+    if (this.currentItem === item) return;
 
     this.currentItem = item;
 
@@ -189,11 +192,18 @@ export class ItemTooltip extends THREE.Object3D {
 
   /**
    * 툴팁 위치 설정 (슬롯 위치 기준 - 로컬 좌표)
-   * 화면 경계를 고려하여 자동 조절됨
+   * 디아블로 스타일: 슬롯 상단(y + height/2)에 툴팁 하단이 맞춰짐
    */
-  setLocalPosition(x: number, y: number): void {
-    this.tooltip.setAnchorPosition(x, y);
-    this.position.z = 15;
+  setLocalPosition(slotX: number, slotY: number): void {
+    // 슬롯 높이의 절반 (80 * 0.01 / 2 = 0.4)
+    const slotHalfHeight = 0.4;
+
+    // 슬롯 상단에 툴팁 하단이 맞춤
+    const tooltipX = slotX;
+    const tooltipY = slotY + slotHalfHeight;
+
+    // 직접 position 설정 (UITooltip의 viewBounds 로직 우회)
+    this.position.set(tooltipX, tooltipY, 10);
   }
 
   /**

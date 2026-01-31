@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Inventory } from '../inventory/Inventory';
 import { Item } from '../inventory/Item';
 import { UITheme, DEFAULT_UI_THEME, mergeTheme } from './UITheme';
-import { UIPanel, UIText, UIBox, UIImage } from '../../../three-troika-ui/src';
+import { UIPanel, UIText, UIBox, UIImage, UI9Slice } from '../../../three-troika-ui/src';
 
 // 픽셀을 UI 단위로 변환 (1 unit = 100px 기준)
 const PX = 0.01;
@@ -32,7 +32,7 @@ export class InventoryGridUI extends THREE.Object3D {
   private inventory: Inventory;
   private theme: UITheme;
   private container: UIPanel;
-  private backgroundBox: UIBox;
+  private background9Slice: UI9Slice;
   private slots: SlotUI[][] = [];
 
   private onSlotClick?: (x: number, y: number, item: Item | null) => void;
@@ -51,20 +51,20 @@ export class InventoryGridUI extends THREE.Object3D {
     this.onSlotRightClick = config.onSlotRightClick;
 
     const { width, height } = this.inventory;
-    const { slotSize, slotGap, padding, backgroundColor, backgroundOpacity, borderRadius } = this.theme;
+    const { slotSize, slotGap, padding } = this.theme;
 
     const totalWidth = width * slotSize + (width + 1) * slotGap + padding * 2;
     const totalHeight = height * slotSize + (height + 1) * slotGap + padding * 2;
 
-    // 배경 박스
-    this.backgroundBox = new UIBox({
+    // 9-slice 배경
+    this.background9Slice = new UI9Slice({
       width: totalWidth * PX,
       height: totalHeight * PX,
-      color: backgroundColor,
-      opacity: backgroundOpacity,
-      borderRadius: borderRadius * PX,
+      texture: 'ui/panel-031.png',
+      textureSize: { width: 48, height: 48 },
+      sliceBorders: { left: 15, right: 15, top: 15, bottom: 15 },
     });
-    this.add(this.backgroundBox);
+    this.add(this.background9Slice);
 
     // 메인 컨테이너
     this.container = new UIPanel({
@@ -327,6 +327,6 @@ export class InventoryGridUI extends THREE.Object3D {
     }
 
     this.container.dispose();
-    this.backgroundBox.dispose();
+    this.background9Slice.dispose();
   }
 }

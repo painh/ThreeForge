@@ -75,8 +75,8 @@ export class InventoryScreen extends THREE.Object3D {
 
       // 장비창(위)과 인벤토리(아래) 세로 배치
       // 장비창: 위쪽, 인벤토리: 아래쪽
-      this.equipmentUI.position.set(0, 1.8, 0);
-      this.inventoryUI.position.set(0, -1.0, 0);
+      this.equipmentUI.position.set(0, 2.8, 0);
+      this.inventoryUI.position.set(0, -1.6, 0);
 
       this.add(this.equipmentUI);
     } else {
@@ -283,10 +283,8 @@ export class InventoryScreen extends THREE.Object3D {
 
     if (item) {
       this.tooltip.setItem(item);
-      // 툴팁 위치: 아이템 오른쪽 위에 배치 (아이콘을 가리지 않도록)
-      const tooltipX = localX + 1.2; // 오른쪽으로 이동
-      const tooltipY = localY + 0.5; // 약간 위로
-      this.tooltip.setLocalPosition(tooltipX, tooltipY);
+      // 툴팁 위치: 마우스 근처에 배치 (localX, localY는 InventoryScreen 로컬 좌표)
+      this.tooltip.setLocalPosition(localX, localY);
     } else {
       this.tooltip.hide();
     }

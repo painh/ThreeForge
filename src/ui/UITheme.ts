@@ -49,10 +49,10 @@ export const DEFAULT_UI_THEME: UITheme = {
     legendary: 0xff8000,
   },
 
-  slotSize: 50,
-  slotGap: 4,
-  padding: 12,
-  borderRadius: 4,
+  slotSize: 80,
+  slotGap: 6,
+  padding: 16,
+  borderRadius: 6,
 
   fontFamily: 'Arial',
   fontSize: 12,

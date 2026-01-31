@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Equipment } from '../inventory/Equipment';
 import { Item } from '../inventory/Item';
 import { UITheme, DEFAULT_UI_THEME, mergeTheme } from './UITheme';
-import { UIPanel, UIText, UIBox, UIImage } from '../../../three-troika-ui/src';
+import { UIPanel, UIText, UIBox, UIImage, UI9Slice } from '../../../three-troika-ui/src';
 
 // 픽셀을 UI 단위로 변환 (1 unit = 100px 기준)
 const PX = 0.01;
@@ -39,7 +39,7 @@ export class EquipmentUI extends THREE.Object3D {
   private equipment: Equipment;
   private theme: UITheme;
   private container: UIPanel;
-  private backgroundBox: UIBox;
+  private background9Slice: UI9Slice;
   private slotUIs: Map<string, EquipSlotUI> = new Map();
 
   private onSlotClick?: (slotId: string, item: Item | null) => void;
@@ -55,20 +55,20 @@ export class EquipmentUI extends THREE.Object3D {
     this.onSlotClick = config.onSlotClick;
     this.onSlotRightClick = config.onSlotRightClick;
 
-    const { backgroundColor, backgroundOpacity, borderRadius, padding, slotSize, slotGap } = this.theme;
+    const { padding, slotSize, slotGap } = this.theme;
 
     const totalWidth = config.cols * slotSize + (config.cols + 1) * slotGap + padding * 2;
     const totalHeight = config.rows * slotSize + (config.rows + 1) * slotGap + padding * 2;
 
-    // 배경 박스
-    this.backgroundBox = new UIBox({
+    // 9-slice 배경
+    this.background9Slice = new UI9Slice({
       width: totalWidth * PX,
       height: totalHeight * PX,
-      color: backgroundColor,
-      opacity: backgroundOpacity,
-      borderRadius: borderRadius * PX,
+      texture: 'ui/panel-031.png',
+      textureSize: { width: 48, height: 48 },
+      sliceBorders: { left: 15, right: 15, top: 15, bottom: 15 },
     });
-    this.add(this.backgroundBox);
+    this.add(this.background9Slice);
 
     // 메인 컨테이너
     this.container = new UIPanel({
@@ -315,7 +315,7 @@ export class EquipmentUI extends THREE.Object3D {
     }
 
     this.container.dispose();
-    this.backgroundBox.dispose();
+    this.background9Slice.dispose();
   }
 }
 
