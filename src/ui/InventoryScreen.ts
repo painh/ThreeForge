@@ -190,7 +190,7 @@ export class InventoryScreen extends THREE.Object3D {
     if (item) {
       this.inventoryComponent.unequipItem(slotId);
       // 해제 후 장비 슬롯의 새 아이템으로 툴팁 갱신
-      const newItem = this.inventoryComponent.equipment?.getEquippedItem(slotId) ?? null;
+      const newItem = this.inventoryComponent.equipment?.getEquipped(slotId) ?? null;
       if (newItem) {
         this.tooltip.setItem(newItem);
       } else {
@@ -475,7 +475,7 @@ export class InventoryScreen extends THREE.Object3D {
    * 장비 슬롯 우클릭 처리 (외부에서 호출)
    */
   handleEquipmentRightClick(slotId: string): void {
-    const item = this.inventoryComponent.equipment?.getEquippedItem(slotId) ?? null;
+    const item = this.inventoryComponent.equipment?.getEquipped(slotId) ?? null;
     this.handleEquipSlotRightClick(slotId, item);
   }
 
