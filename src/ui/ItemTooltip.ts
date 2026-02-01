@@ -195,21 +195,19 @@ export class ItemTooltip extends THREE.Object3D {
   }
 
   /**
-   * 툴팁 위치 설정 (슬롯 위치 기준 - 로컬 좌표)
-   * 디아블로 스타일: 슬롯 상단에 툴팁이 배치됨
+   * 툴팁 위치 설정 (인벤토리 왼쪽 바깥에 배치)
+   * @param inventoryLeftEdge 인벤토리 왼쪽 경계 X 좌표
+   * @param slotY 슬롯 Y 좌표 (툴팁 Y 위치 참조용)
    */
-  setLocalPosition(slotX: number, slotY: number): void {
-    // 테마에서 슬롯 높이 가져옴
-    const slotHeight = this.theme.slotSize * PX;
-    // 툴팁 콘텐츠 높이 (UITooltip 배경의 중심이 기준이므로 절반 필요)
-    const tooltipHalfHeight = this.tooltip.getContentHeight() / 2;
+  setLocalPosition(inventoryLeftEdge: number, slotY: number): void {
+    // 툴팁 콘텐츠 크기
+    const tooltipHalfWidth = this.tooltip.getContentWidth() / 2;
 
-    // 슬롯 상단에 툴팁 배치
-    // 1. slotY는 슬롯 중심 좌표
-    // 2. slotHeight/2를 더해서 슬롯 상단으로 이동
-    // 3. tooltipHalfHeight를 더해서 툴팁 하단이 슬롯 상단에 오도록 함
-    const tooltipX = slotX;
-    const tooltipY = slotY + slotHeight / 2 + tooltipHalfHeight;
+    // 인벤토리 왼쪽 바깥에 배치
+    // 툴팁의 오른쪽 면이 인벤토리 왼쪽 면에 닿도록
+    const gap = 0.1; // 약간의 간격
+    const tooltipX = inventoryLeftEdge - tooltipHalfWidth - gap;
+    const tooltipY = slotY;
 
     this.position.set(tooltipX, tooltipY, TOOLTIP_Z_INDEX);
   }

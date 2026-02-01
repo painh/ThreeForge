@@ -42,6 +42,13 @@ export class InventoryGridUI extends THREE.Object3D {
   private hoveredSlot: { x: number; y: number } | null = null;
   private selectedSlot: { x: number; y: number } | null = null;
 
+  // 드롭 프리뷰 상태
+  private dropPreviewSlots: { x: number; y: number }[] = [];
+
+  // 드롭 프리뷰 색상
+  private static readonly DROP_PREVIEW_CAN_DROP_COLOR = 0x00ff00; // 녹색
+  private static readonly DROP_PREVIEW_CANNOT_DROP_COLOR = 0xff0000; // 빨간색
+
   constructor(config: InventoryGridUIConfig) {
     super();
 
@@ -269,14 +276,52 @@ export class InventoryGridUI extends THREE.Object3D {
     }
   }
 
+  /**
+   * 드롭 프리뷰 설정 (멀티 슬롯 지원)
+   */
+  setDropPreview(x: number, y: number, canDrop: boolean, itemWidth: number = 1, itemHeight: number = 1): void {
+    // 이전 프리뷰 해제
+    this.clearDropPreview();
+
+    // 프리뷰 배경색 적용
+    const color = canDrop
+      ? InventoryGridUI.DROP_PREVIEW_CAN_DROP_COLOR
+      : InventoryGridUI.DROP_PREVIEW_CANNOT_DROP_COLOR;
+
+    // 아이템 크기만큼 슬롯들에 프리뷰 표시
+    for (let dy = 0; dy < itemHeight; dy++) {
+      for (let dx = 0; dx < itemWidth; dx++) {
+        const slotX = x + dx;
+        const slotY = y + dy;
+        if (slotY >= 0 && slotY < this.inventory.height && slotX >= 0 && slotX < this.inventory.width) {
+          this.dropPreviewSlots.push({ x: slotX, y: slotY });
+          this.slots[slotY][slotX].container.setColor(color);
+        }
+      }
+    }
+  }
+
+  /**
+   * 드롭 프리뷰 해제
+   */
+  clearDropPreview(): void {
+    for (const slot of this.dropPreviewSlots) {
+      this.updateSlotState(slot.x, slot.y);
+    }
+    this.dropPreviewSlots = [];
+  }
+
   private updateSlotState(x: number, y: number): void {
     const item = this.inventory.getItemAt(x, y);
     const slot = this.slots[y][x];
 
     if (item) {
+      const rarityColor = this.theme.rarityColors[item.rarity] ?? this.theme.rarityColors.common;
       slot.container.setColor(this.theme.slotColor);
+      slot.container.setBorder(2 * PX, rarityColor);
     } else {
       slot.container.setColor(this.theme.slotEmptyColor);
+      slot.container.setBorder(0, 0x000000);
     }
   }
 
@@ -315,6 +360,15 @@ export class InventoryGridUI extends THREE.Object3D {
       this.slots[y][x].container.getWorldPosition(worldPos);
     }
     return worldPos;
+  }
+
+  /**
+   * 인벤토리 UI 전체 너비 반환
+   */
+  getTotalWidth(): number {
+    const { width } = this.inventory;
+    const { slotSize, slotGap, padding } = this.theme;
+    return (width * slotSize + (width + 1) * slotGap + padding * 2) * PX;
   }
 
   /**

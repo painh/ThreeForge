@@ -47,6 +47,13 @@ export class EquipmentUI extends THREE.Object3D {
 
   private hoveredSlot: string | null = null;
 
+  // 드롭 프리뷰 상태
+  private dropPreviewSlot: string | null = null;
+
+  // 드롭 프리뷰 색상
+  private static readonly DROP_PREVIEW_CAN_DROP_COLOR = 0x00ff00; // 녹색
+  private static readonly DROP_PREVIEW_CANNOT_DROP_COLOR = 0xff0000; // 빨간색
+
   constructor(config: EquipmentUIConfig) {
     super();
 
@@ -260,15 +267,49 @@ export class EquipmentUI extends THREE.Object3D {
     }
   }
 
+  /**
+   * 드롭 프리뷰 설정
+   */
+  setDropPreview(slotId: string, canDrop: boolean): void {
+    // 이전 프리뷰 해제
+    if (this.dropPreviewSlot && this.dropPreviewSlot !== slotId) {
+      this.updateSlotState(this.dropPreviewSlot);
+    }
+
+    this.dropPreviewSlot = slotId;
+
+    // 프리뷰 배경색 적용
+    const slotUI = this.slotUIs.get(slotId);
+    if (slotUI) {
+      const color = canDrop
+        ? EquipmentUI.DROP_PREVIEW_CAN_DROP_COLOR
+        : EquipmentUI.DROP_PREVIEW_CANNOT_DROP_COLOR;
+      slotUI.container.setColor(color);
+    }
+  }
+
+  /**
+   * 드롭 프리뷰 해제
+   */
+  clearDropPreview(): void {
+    if (this.dropPreviewSlot) {
+      this.updateSlotState(this.dropPreviewSlot);
+      this.dropPreviewSlot = null;
+    }
+  }
+
   private updateSlotState(slotId: string): void {
     const item = this.equipment.getEquipped(slotId);
     const slotUI = this.slotUIs.get(slotId);
     if (!slotUI) return;
 
     if (item) {
+      const rarityColor = this.theme.rarityColors[item.rarity] ?? this.theme.rarityColors.common;
       slotUI.container.setColor(this.theme.slotColor);
+      slotUI.container.setBorder(2 * PX, rarityColor);
     } else {
       slotUI.container.setColor(this.theme.slotEmptyColor);
+      slotUI.container.setBorder(0, 0x000000);
     }
   }
 

@@ -39,6 +39,10 @@ export class InventoryScreen extends THREE.Object3D {
   // 드래그 아이콘 (마우스 따라다니는 스프라이트)
   private dragIcon: THREE.Sprite | null = null;
 
+  // 드롭 프리뷰 상태
+  private previewSlot: { type: 'inventory'; x: number; y: number } | { type: 'equipment'; slotId: string } | null = null;
+  private canDropAtPreview: boolean = false;
+
   // 툴팁
   private tooltip: ItemTooltip;
 
@@ -114,26 +118,20 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
-   * 인벤토리 슬롯 클릭 처리
+   * 인벤토리 슬롯 마우스 다운 처리 (드래그 시작)
    */
-  private handleInventorySlotClick(x: number, y: number, item: Item | null): void {
-    if (this.draggedItem) {
-      // 드래그 중인 아이템 배치
-      if (this.draggedFromInventory && this.draggedFromPos) {
-        // 인벤토리 내 이동 (placeAt은 내부적으로 기존 위치 처리함)
-        this.inventoryComponent.inventory.placeAt(this.draggedItem, x, y);
-      } else if (this.draggedFromSlot) {
-        // 장비에서 인벤토리로
-        if (this.inventoryComponent.inventory.canPlaceAt(this.draggedItem, x, y)) {
-          this.inventoryComponent.equipment?.unequip(this.draggedFromSlot);
-          this.inventoryComponent.inventory.placeAt(this.draggedItem, x, y);
-        }
-      }
-      this.clearDrag();
-    } else if (item) {
+  handleInventorySlotMouseDown(x: number, y: number, item: Item | null): void {
+    if (item && !this.draggedItem) {
       // 아이템 드래그 시작
       this.startDrag(item, true, null, { x, y });
     }
+  }
+
+  /**
+   * 인벤토리 슬롯 클릭 처리 (호환성용 - 사용 안 함)
+   */
+  private handleInventorySlotClick(_x: number, _y: number, _item: Item | null): void {
+    // 드래그앤드롭 방식으로 변경되어 사용 안 함
   }
 
   /**
@@ -162,36 +160,20 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
-   * 장비 슬롯 클릭 처리
+   * 장비 슬롯 마우스 다운 처리 (드래그 시작)
    */
-  private handleEquipSlotClick(slotId: string, item: Item | null): void {
-    if (this.draggedItem) {
-      // 드래그 중인 아이템 장착
-      if (this.draggedFromInventory && this.draggedFromPos) {
-        // 인벤토리에서 장비로
-        if (this.inventoryComponent.equipment?.canEquipAt(this.draggedItem, slotId)) {
-          this.inventoryComponent.inventory.removeItem(this.draggedItem);
-          const swappedItem = this.inventoryComponent.equipment.equip(this.draggedItem, slotId);
-          // 교환된 아이템이 있으면 인벤토리에 추가
-          if (swappedItem) {
-            this.inventoryComponent.inventory.addItem(swappedItem);
-          }
-        }
-      } else if (this.draggedFromSlot && this.draggedFromSlot !== slotId) {
-        // 장비 슬롯 간 교환 (같은 타입이면)
-        if (this.inventoryComponent.equipment?.canEquipAt(this.draggedItem, slotId)) {
-          this.inventoryComponent.equipment.unequip(this.draggedFromSlot);
-          const swappedItem = this.inventoryComponent.equipment.equip(this.draggedItem, slotId);
-          if (swappedItem) {
-            this.inventoryComponent.equipment.equip(swappedItem, this.draggedFromSlot);
-          }
-        }
-      }
-      this.clearDrag();
-    } else if (item) {
+  handleEquipSlotMouseDown(slotId: string, item: Item | null): void {
+    if (item && !this.draggedItem) {
       // 아이템 드래그 시작
       this.startDrag(item, false, slotId, null);
     }
+  }
+
+  /**
+   * 장비 슬롯 클릭 처리 (호환성용 - 사용 안 함)
+   */
+  private handleEquipSlotClick(_slotId: string, _item: Item | null): void {
+    // 드래그앤드롭 방식으로 변경되어 사용 안 함
   }
 
   /**
@@ -203,12 +185,145 @@ export class InventoryScreen extends THREE.Object3D {
     }
   }
 
+  /**
+   * 마우스 업 처리 (드롭)
+   */
+  handleMouseUp(): void {
+    if (!this.draggedItem) return;
+
+    // 프리뷰 슬롯이 있고 드롭 가능하면 드롭 실행
+    if (this.previewSlot && this.canDropAtPreview) {
+      if (this.previewSlot.type === 'inventory') {
+        this.dropAtInventory(this.previewSlot.x, this.previewSlot.y);
+      } else if (this.previewSlot.type === 'equipment') {
+        this.dropAtEquipment(this.previewSlot.slotId);
+      }
+    }
+
+    this.clearDrag();
+  }
+
+  /**
+   * 인벤토리에 드롭
+   */
+  private dropAtInventory(x: number, y: number): void {
+    if (!this.draggedItem) return;
+
+    if (this.draggedFromInventory && this.draggedFromPos) {
+      // 인벤토리 내 이동
+      this.inventoryComponent.inventory.placeAt(this.draggedItem, x, y);
+    } else if (this.draggedFromSlot) {
+      // 장비에서 인벤토리로
+      if (this.inventoryComponent.inventory.canPlaceAt(this.draggedItem, x, y)) {
+        this.inventoryComponent.equipment?.unequip(this.draggedFromSlot);
+        this.inventoryComponent.inventory.placeAt(this.draggedItem, x, y);
+      }
+    }
+  }
+
+  /**
+   * 장비 슬롯에 드롭
+   */
+  private dropAtEquipment(slotId: string): void {
+    if (!this.draggedItem) return;
+
+    if (this.draggedFromInventory && this.draggedFromPos) {
+      // 인벤토리에서 장비로
+      if (this.inventoryComponent.equipment?.canEquipAt(this.draggedItem, slotId)) {
+        this.inventoryComponent.inventory.removeItem(this.draggedItem);
+        const swappedItem = this.inventoryComponent.equipment.equip(this.draggedItem, slotId);
+        if (swappedItem) {
+          this.inventoryComponent.inventory.addItem(swappedItem);
+        }
+      }
+    } else if (this.draggedFromSlot && this.draggedFromSlot !== slotId) {
+      // 장비 슬롯 간 교환
+      if (this.inventoryComponent.equipment?.canEquipAt(this.draggedItem, slotId)) {
+        this.inventoryComponent.equipment.unequip(this.draggedFromSlot);
+        const swappedItem = this.inventoryComponent.equipment.equip(this.draggedItem, slotId);
+        if (swappedItem) {
+          this.inventoryComponent.equipment.equip(swappedItem, this.draggedFromSlot);
+        }
+      }
+    }
+  }
+
+  /**
+   * 드롭 프리뷰 업데이트 (인벤토리 슬롯)
+   */
+  updateDropPreviewInventory(x: number, y: number): void {
+    if (!this.draggedItem) {
+      this.clearDropPreview();
+      return;
+    }
+
+    // 드롭 가능 여부 확인
+    let canDrop = false;
+    if (this.draggedFromInventory) {
+      // 인벤토리 내 이동: 자기 자신 위치는 허용, 다른 곳은 canPlaceAt 체크
+      if (this.draggedFromPos && x === this.draggedFromPos.x && y === this.draggedFromPos.y) {
+        canDrop = true;
+      } else {
+        canDrop = this.inventoryComponent.inventory.canPlaceAt(this.draggedItem, x, y);
+      }
+    } else if (this.draggedFromSlot) {
+      // 장비에서 인벤토리로
+      canDrop = this.inventoryComponent.inventory.canPlaceAt(this.draggedItem, x, y);
+    }
+
+    this.previewSlot = { type: 'inventory', x, y };
+    this.canDropAtPreview = canDrop;
+
+    // UI에 프리뷰 표시 (아이템 크기 전달)
+    this.inventoryUI.setDropPreview(x, y, canDrop, this.draggedItem.width, this.draggedItem.height);
+  }
+
+  /**
+   * 드롭 프리뷰 업데이트 (장비 슬롯)
+   */
+  updateDropPreviewEquipment(slotId: string): void {
+    if (!this.draggedItem) {
+      this.clearDropPreview();
+      return;
+    }
+
+    // 드롭 가능 여부 확인
+    let canDrop = false;
+    if (this.draggedFromInventory) {
+      canDrop = this.inventoryComponent.equipment?.canEquipAt(this.draggedItem, slotId) ?? false;
+    } else if (this.draggedFromSlot) {
+      // 같은 슬롯이면 허용 (취소), 다른 슬롯이면 canEquipAt 체크
+      if (this.draggedFromSlot === slotId) {
+        canDrop = true;
+      } else {
+        canDrop = this.inventoryComponent.equipment?.canEquipAt(this.draggedItem, slotId) ?? false;
+      }
+    }
+
+    this.previewSlot = { type: 'equipment', slotId };
+    this.canDropAtPreview = canDrop;
+
+    // UI에 프리뷰 표시
+    this.equipmentUI?.setDropPreview(slotId, canDrop);
+  }
+
+  /**
+   * 드롭 프리뷰 초기화
+   */
+  clearDropPreview(): void {
+    this.previewSlot = null;
+    this.canDropAtPreview = false;
+    this.inventoryUI.clearDropPreview();
+    this.equipmentUI?.clearDropPreview();
+  }
+
   private clearDrag(): void {
     this.draggedItem = null;
     this.draggedFromInventory = false;
     this.draggedFromSlot = null;
     this.draggedFromPos = null;
     this.inventoryUI.clearSelection();
+    this.clearDropPreview();
     this.removeDragIcon();
   }
 
@@ -236,7 +351,9 @@ export class InventoryScreen extends THREE.Object3D {
       opacity: 0.8,
     });
     this.dragIcon = new THREE.Sprite(spriteMaterial);
-    this.dragIcon.scale.set(0.5, 0.5, 1);
+    // 슬롯 크기에 맞게 아이콘 크기 설정 (slotSize=80, PX=0.01 -> 0.8)
+    const iconSize = 0.72;
+    this.dragIcon.scale.set(iconSize, iconSize, 1);
     this.dragIcon.renderOrder = 200; // 다른 UI 위에 표시
     this.add(this.dragIcon);
   }
@@ -274,7 +391,7 @@ export class InventoryScreen extends THREE.Object3D {
   /**
    * 아이템 호버 처리
    */
-  setHoveredItem(item: Item | null, localX: number, localY: number): void {
+  setHoveredItem(item: Item | null, _localX: number, localY: number): void {
     // 드래그 중이면 툴팁 숨김
     if (this.draggedItem) {
       this.tooltip.hide();
@@ -283,8 +400,9 @@ export class InventoryScreen extends THREE.Object3D {
 
     if (item) {
       this.tooltip.setItem(item);
-      // 툴팁 위치: 마우스 근처에 배치 (localX, localY는 InventoryScreen 로컬 좌표)
-      this.tooltip.setLocalPosition(localX, localY);
+      // 인벤토리 왼쪽 경계 계산 (인벤토리 UI의 왼쪽 가장자리)
+      const inventoryLeftEdge = this.inventoryUI.position.x - this.inventoryUI.getTotalWidth() / 2;
+      this.tooltip.setLocalPosition(inventoryLeftEdge, localY);
     } else {
       this.tooltip.hide();
     }

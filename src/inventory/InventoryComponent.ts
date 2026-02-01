@@ -53,14 +53,30 @@ export class InventoryComponent extends Component {
 
   /**
    * 아이템 장착 (인벤토리에서 장비 슬롯으로)
+   * 디아블로 스타일: 빈 슬롯 우선, 없으면 첫 번째 슬롯과 교체
    */
   equipItem(item: Item, slotId?: string): boolean {
     if (!this.equipment) return false;
 
-    // 슬롯이 지정되지 않으면 첫 번째 호환 슬롯 사용
-    const targetSlot = slotId ?? this.equipment.findCompatibleSlots(item)[0];
-    if (!targetSlot) return false;
+    let targetSlot: string | undefined;
 
+    if (slotId) {
+      // 슬롯이 지정된 경우
+      targetSlot = slotId;
+    } else {
+      // 슬롯이 지정되지 않은 경우: 빈 슬롯 우선, 없으면 첫 번째 슬롯
+      const compatibleSlots = this.equipment.findCompatibleSlots(item);
+      if (compatibleSlots.length === 0) return false;
+
+      // 빈 슬롯 찾기
+      const emptySlot = compatibleSlots.find(
+        (slot) => this.equipment!.getEquipped(slot) === null
+      );
+
+      targetSlot = emptySlot ?? compatibleSlots[0];
+    }
+
+    if (!targetSlot) return false;
     if (!this.equipment.canEquipAt(item, targetSlot)) return false;
 
     // 인벤토리에서 제거
