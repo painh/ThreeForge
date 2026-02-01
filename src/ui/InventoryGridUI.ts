@@ -7,6 +7,7 @@ import { UIPanel, UIText, UIBox, UIImage, UI9Slice } from '../../../three-troika
 // 픽셀을 UI 단위로 변환 (1 unit = 100px 기준)
 const PX = 0.01;
 
+
 export interface InventoryGridUIConfig {
   inventory: Inventory;
   theme?: Partial<UITheme>;
@@ -21,6 +22,7 @@ interface SlotUI {
   itemIcon?: UIImage;
   quantityText?: UIText;
   quantityBg?: UIBox;
+  isLegendary?: boolean;
   x: number;
   y: number;
 }
@@ -48,6 +50,10 @@ export class InventoryGridUI extends THREE.Object3D {
   // 드롭 프리뷰 색상
   private static readonly DROP_PREVIEW_CAN_DROP_COLOR = 0x00ff00; // 녹색
   private static readonly DROP_PREVIEW_CANNOT_DROP_COLOR = 0xff0000; // 빨간색
+
+  // 레전더리 글로우 애니메이션용
+  private legendaryGlowSlots: SlotUI[] = [];
+  private glowTime: number = 0;
 
   constructor(config: InventoryGridUIConfig) {
     super();
@@ -146,6 +152,9 @@ export class InventoryGridUI extends THREE.Object3D {
   refresh(): void {
     const { slotSize, slotGap, slotColor, slotEmptyColor, rarityColors } = this.theme;
 
+    // 레전더리 글로우 슬롯 초기화
+    this.legendaryGlowSlots = [];
+
     // 모든 슬롯 초기화
     for (let y = 0; y < this.inventory.height; y++) {
       for (let x = 0; x < this.inventory.width; x++) {
@@ -168,6 +177,8 @@ export class InventoryGridUI extends THREE.Object3D {
           slot.quantityBg.dispose();
           slot.quantityBg = undefined;
         }
+        // 레전더리 플래그 초기화
+        slot.isLegendary = false;
 
         if (item && item.gridX === x && item.gridY === y) {
           // 아이템이 있고, 이 슬롯이 아이템의 시작 위치인 경우만 표시
@@ -219,6 +230,12 @@ export class InventoryGridUI extends THREE.Object3D {
             qtyText.position.set((iconSize / 2 - 10) * PX, (-iconSize / 2 + 8) * PX, 0.03);
             slot.quantityText = qtyText;
             slot.container.add(qtyText);
+          }
+
+          // 레전더리 아이템 반짝임 효과
+          if (item.rarity === 'legendary' && slot.itemIcon) {
+            slot.isLegendary = true;
+            this.legendaryGlowSlots.push(slot);
           }
         } else if (item) {
           // 아이템의 일부 영역 (시작 위치가 아닌 경우) - 시작 슬롯과 동일하게 표시
@@ -374,8 +391,25 @@ export class InventoryGridUI extends THREE.Object3D {
   /**
    * UI 업데이트
    */
-  update(): void {
-    // troika-ui는 자동 업데이트
+  update(deltaTime: number = 1 / 60): void {
+    // 레전더리 아이템 반짝임 애니메이션
+    if (this.legendaryGlowSlots.length > 0) {
+      this.glowTime += deltaTime;
+
+      // 펄스 효과 (1초 주기)
+      const pulse = Math.sin(this.glowTime * Math.PI * 2) * 0.5 + 0.5; // 0 ~ 1
+
+      // 레전더리 색상 (0xff8000 = 주황색)과 흰색 사이를 보간
+      const baseColor = new THREE.Color(this.theme.rarityColors.legendary);
+      const brightColor = new THREE.Color(0xffffff);
+      const currentColor = baseColor.clone().lerp(brightColor, pulse * 0.5);
+
+      for (const slot of this.legendaryGlowSlots) {
+        if (slot.itemIcon && slot.isLegendary) {
+          slot.itemIcon.setColor(currentColor.getHex());
+        }
+      }
+    }
   }
 
   dispose(): void {
@@ -396,6 +430,7 @@ export class InventoryGridUI extends THREE.Object3D {
       }
     }
 
+    this.legendaryGlowSlots = [];
     this.container.dispose();
     this.background9Slice.dispose();
   }

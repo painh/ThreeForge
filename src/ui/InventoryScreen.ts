@@ -153,9 +153,16 @@ export class InventoryScreen extends THREE.Object3D {
   /**
    * 인벤토리 슬롯 우클릭 처리 (빠른 장착)
    */
-  private handleInventorySlotRightClick(_x: number, _y: number, item: Item | null): void {
+  private handleInventorySlotRightClick(x: number, y: number, item: Item | null): void {
     if (item && item.equipSlot) {
       this.inventoryComponent.equipItem(item);
+      // 스왑 후 해당 슬롯의 새 아이템으로 툴팁 갱신
+      const newItem = this.inventoryComponent.inventory.getItemAt(x, y);
+      if (newItem) {
+        this.tooltip.setItem(newItem);
+      } else {
+        this.tooltip.hide();
+      }
     }
   }
 
@@ -182,6 +189,13 @@ export class InventoryScreen extends THREE.Object3D {
   private handleEquipSlotRightClick(slotId: string, item: Item | null): void {
     if (item) {
       this.inventoryComponent.unequipItem(slotId);
+      // 해제 후 장비 슬롯의 새 아이템으로 툴팁 갱신
+      const newItem = this.inventoryComponent.equipment?.getEquippedItem(slotId) ?? null;
+      if (newItem) {
+        this.tooltip.setItem(newItem);
+      } else {
+        this.tooltip.hide();
+      }
     }
   }
 
@@ -450,6 +464,22 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
+   * 인벤토리 슬롯 우클릭 처리 (외부에서 호출)
+   */
+  handleInventoryRightClick(x: number, y: number): void {
+    const item = this.inventoryComponent.inventory.getItemAt(x, y);
+    this.handleInventorySlotRightClick(x, y, item);
+  }
+
+  /**
+   * 장비 슬롯 우클릭 처리 (외부에서 호출)
+   */
+  handleEquipmentRightClick(slotId: string): void {
+    const item = this.inventoryComponent.equipment?.getEquippedItem(slotId) ?? null;
+    this.handleEquipSlotRightClick(slotId, item);
+  }
+
+  /**
    * 인벤토리 슬롯의 월드 위치 반환
    */
   getInventorySlotWorldPosition(x: number, y: number): THREE.Vector3 {
@@ -459,8 +489,8 @@ export class InventoryScreen extends THREE.Object3D {
   /**
    * UI 업데이트 (매 프레임 호출)
    */
-  update(): void {
-    // troika-ui는 자동 업데이트
+  update(deltaTime: number = 1 / 60): void {
+    this.inventoryUI.update(deltaTime);
   }
 
   dispose(): void {
