@@ -5,6 +5,10 @@ export { Component } from './core/Component';
 export { StatValue, StatContainer } from './core/StatModifier';
 export type { Modifier, ModifierType } from './core/StatModifier';
 
+// Resource
+export { ResourceManager } from './resource/ResourceManager';
+export type { ResourceManifest, LoadingProgress, ProgressCallback } from './resource/ResourceManager';
+
 // State
 export { State } from './state/State';
 export { StateMachine } from './state/StateMachine';
