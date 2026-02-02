@@ -2,6 +2,8 @@
 export { Entity } from './core/Entity';
 export { EntityManager } from './core/EntityManager';
 export { Component } from './core/Component';
+export { StatValue, StatContainer } from './core/StatModifier';
+export type { Modifier, ModifierType } from './core/StatModifier';
 
 // State
 export { State } from './state/State';
