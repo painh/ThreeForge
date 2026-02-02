@@ -17,6 +17,7 @@ export interface InventoryScreenConfig {
   equipmentRows?: number;
   theme?: Partial<UITheme>;
   showEquipment?: boolean;
+  onItemUse?: (item: Item) => boolean; // 아이템 사용 콜백 (성공 시 true 반환)
 }
 
 /**
@@ -48,10 +49,14 @@ export class InventoryScreen extends THREE.Object3D {
 
   private _visible: boolean = false;
 
+  // 아이템 사용 콜백
+  private onItemUse?: (item: Item) => boolean;
+
   constructor(config: InventoryScreenConfig) {
     super();
 
     this.inventoryComponent = config.inventoryComponent;
+    this.onItemUse = config.onItemUse;
 
     // 툴팁 생성
     this.tooltip = new ItemTooltip({ theme: config.theme });
@@ -151,10 +156,13 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
-   * 인벤토리 슬롯 우클릭 처리 (빠른 장착)
+   * 인벤토리 슬롯 우클릭 처리 (빠른 장착 또는 아이템 사용)
    */
   private handleInventorySlotRightClick(x: number, y: number, item: Item | null): void {
-    if (item && item.equipSlot) {
+    if (!item) return;
+
+    // 장착 가능한 아이템은 장착
+    if (item.equipSlot) {
       this.inventoryComponent.equipItem(item);
       // 스왑 후 해당 슬롯의 새 아이템으로 툴팁 갱신
       const newItem = this.inventoryComponent.inventory.getItemAt(x, y);
@@ -162,6 +170,21 @@ export class InventoryScreen extends THREE.Object3D {
         this.tooltip.setItem(newItem);
       } else {
         this.tooltip.hide();
+      }
+      return;
+    }
+
+    // 스택 가능한 아이템(소모품)은 사용
+    if (item.isStackable && this.onItemUse) {
+      const success = this.onItemUse(item);
+      if (success) {
+        // 사용 후 해당 슬롯의 아이템으로 툴팁 갱신
+        const newItem = this.inventoryComponent.inventory.getItemAt(x, y);
+        if (newItem) {
+          this.tooltip.setItem(newItem);
+        } else {
+          this.tooltip.hide();
+        }
       }
     }
   }

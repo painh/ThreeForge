@@ -143,4 +143,26 @@ export class InventoryComponent extends Component {
     }
     return items;
   }
+
+  /**
+   * 아이템 사용 (소모품)
+   * @returns 사용 성공 여부
+   */
+  useItem(item: Item): boolean {
+    // 스택 가능한 아이템만 사용 가능 (소모품)
+    if (!item.isStackable) return false;
+
+    // onUse 효과 실행
+    item.triggerEffect('onUse', this.entity);
+
+    // 수량 감소
+    item.removeQuantity(1);
+
+    // 수량이 0이면 인벤토리에서 제거
+    if (item.quantity <= 0) {
+      this.inventory.removeItem(item);
+    }
+
+    return true;
+  }
 }
