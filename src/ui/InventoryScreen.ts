@@ -84,7 +84,7 @@ export class InventoryScreen extends THREE.Object3D {
 
       // 장비창(위)과 인벤토리(아래) 세로 배치
       // 장비창: 위쪽, 인벤토리: 아래쪽
-      this.equipmentUI.position.set(0, 2.8, 0);
+      this.equipmentUI.position.set(0, 4.2, 0);
       this.inventoryUI.position.set(0, -1.6, 0);
 
       this.add(this.equipmentUI);
