@@ -34,6 +34,14 @@ export type { EquipmentUIConfig, EquipmentSlotPosition } from './ui/EquipmentUI'
 export { InventoryScreen } from './ui/InventoryScreen';
 export type { InventoryScreenConfig } from './ui/InventoryScreen';
 
+// Effects
+export { RibbonTrail } from './effects/RibbonTrail';
+export type { RibbonTrailOptions } from './effects/RibbonTrail';
+export { FlowingLines } from './effects/FlowingLines';
+export type { FlowingLinesOptions } from './effects/FlowingLines';
+export { ScreenFade } from './effects/ScreenFade';
+export type { ScreenFadeOptions } from './effects/ScreenFade';
+
 // Utils
 export { EventEmitter } from './utils/EventEmitter';
 
