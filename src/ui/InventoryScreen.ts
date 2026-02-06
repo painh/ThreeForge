@@ -18,6 +18,7 @@ export interface InventoryScreenConfig {
   theme?: Partial<UITheme>;
   showEquipment?: boolean;
   onItemUse?: (item: Item) => boolean; // 아이템 사용 콜백 (성공 시 true 반환)
+  onItemHover?: (item: Item | null) => void; // 아이템 호버 콜백
 }
 
 /**
@@ -51,12 +52,15 @@ export class InventoryScreen extends THREE.Object3D {
 
   // 아이템 사용 콜백
   private onItemUse?: (item: Item) => boolean;
+  // 아이템 호버 콜백
+  private onItemHover?: (item: Item | null) => void;
 
   constructor(config: InventoryScreenConfig) {
     super();
 
     this.inventoryComponent = config.inventoryComponent;
     this.onItemUse = config.onItemUse;
+    this.onItemHover = config.onItemHover;
 
     // 툴팁 생성
     this.tooltip = new ItemTooltip({ theme: config.theme });
@@ -97,6 +101,11 @@ export class InventoryScreen extends THREE.Object3D {
 
     // 인벤토리 UI가 다른 UI 위에 렌더링되도록 renderOrder 설정
     this.setRenderOrder(100);
+
+    // 인벤토리 리사이즈 시 renderOrder 재설정
+    this.inventoryComponent.inventory.on('resized', () => {
+      this.setRenderOrder(100);
+    });
 
     // 기본적으로 숨김
     this.visible = false;
@@ -440,8 +449,10 @@ export class InventoryScreen extends THREE.Object3D {
       // 인벤토리 왼쪽 경계 계산 (인벤토리 UI의 왼쪽 가장자리)
       const inventoryLeftEdge = this.inventoryUI.position.x - this.inventoryUI.getTotalWidth() / 2;
       this.tooltip.setLocalPosition(inventoryLeftEdge, localY);
+      this.onItemHover?.(item);
     } else {
       this.tooltip.hide();
+      this.onItemHover?.(null);
     }
   }
 
@@ -450,6 +461,7 @@ export class InventoryScreen extends THREE.Object3D {
    */
   clearHover(): void {
     this.tooltip.hide();
+    this.onItemHover?.(null);
   }
 
   /**
