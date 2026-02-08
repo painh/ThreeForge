@@ -162,7 +162,7 @@ export class EquipmentUI extends THREE.Object3D {
           // 슬롯 라벨 (슬롯 이름 전체 표시)
           const labelText = new UIText({
             text: slotConfig.name,
-            fontSize: (fontSize - 6) * PX,
+            fontSize: (fontSize + 2) * 2 * PX,
             color: fontColor,
             anchorX: 'center',
             anchorY: 'middle',
@@ -335,6 +335,29 @@ export class EquipmentUI extends THREE.Object3D {
       objects.push(...slotUI.container.getInteractiveMeshes());
     }
     return objects;
+  }
+
+  /**
+   * 슬롯 라벨 이름 갱신 (로컬라이징용)
+   * @param names slotId → 번역된 이름 맵
+   */
+  updateSlotNames(names: Record<string, string>): void {
+    for (const [slotId, slotUI] of this.slotUIs) {
+      const newName = names[slotId];
+      if (newName === undefined) continue;
+
+      // Equipment 슬롯 config의 name도 갱신
+      const slotConfig = this.equipment.getSlotConfig(slotId);
+      if (slotConfig) {
+        slotConfig.name = newName;
+      }
+
+      // 아이템이 장착되지 않은 빈 슬롯만 라벨 갱신
+      const item = this.equipment.getEquipped(slotId);
+      if (!item) {
+        slotUI.labelText.setText(newName);
+      }
+    }
   }
 
   /**

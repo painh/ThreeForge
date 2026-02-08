@@ -49,7 +49,7 @@ export const DEFAULT_UI_THEME: UITheme = {
     legendary: 0xff8000,
   },
 
-  slotSize: 80,
+  slotSize: 120,
   slotGap: 6,
   padding: 16,
   borderRadius: 6,

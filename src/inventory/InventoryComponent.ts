@@ -2,6 +2,7 @@ import { Component } from '../core/Component';
 import { Inventory, InventoryConfig } from './Inventory';
 import { Equipment, EquipmentSlotConfig, DEFAULT_EQUIPMENT_SLOTS } from './Equipment';
 import { Item } from './Item';
+import { StatValue } from '../core/StatModifier';
 
 export interface InventoryComponentConfig {
   inventory?: InventoryConfig;
@@ -16,11 +17,28 @@ export class InventoryComponent extends Component {
   readonly inventory: Inventory;
   readonly equipment: Equipment | null;
 
+  /** 인벤토리 슬롯 수 스탯 (modifier로 증감 가능) */
+  private _inventorySlotsStat: StatValue;
+
+  get inventorySlotsStat(): StatValue { return this._inventorySlotsStat; }
+
   constructor(config: InventoryComponentConfig = {}) {
     super();
 
-    // 인벤토리 설정 (기본값: 0x0 크기)
-    this.inventory = new Inventory(config.inventory ?? { width: 0, height: 0 });
+    const invConfig = config.inventory ?? { width: 0, height: 0 };
+
+    // 인벤토리 설정
+    this.inventory = new Inventory(invConfig);
+
+    // 슬롯 수 스탯 (base = 초기 슬롯 수)
+    const initialSlots = invConfig.width * invConfig.height;
+    this._inventorySlotsStat = new StatValue(initialSlots);
+    this._inventorySlotsStat.setOnChange((newValue: number) => {
+      const totalSlots = Math.floor(newValue);
+      if (totalSlots !== this.inventory.totalSlots) {
+        this.inventory.resizeBySlots(totalSlots);
+      }
+    });
 
     // 장비 설정
     if (config.equipment === true) {
@@ -164,5 +182,32 @@ export class InventoryComponent extends Component {
     }
 
     return true;
+  }
+
+  /**
+   * 아이템 존재 여부 확인 (인벤토리 + 장비)
+   */
+  hasItem(item: Item): boolean {
+    // 인벤토리에서 찾기
+    if (this.inventory.findItemById(item.id)) return true;
+
+    // 장비에서 찾기
+    if (this.equipment) {
+      for (const equipped of this.equipment.getEquippedItems()) {
+        if (equipped.id === item.id) return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * 인벤토리와 장비 모두 초기화
+   */
+  clear(): void {
+    this.inventory.clear();
+    if (this.equipment) {
+      this.equipment.unequipAll();
+    }
   }
 }

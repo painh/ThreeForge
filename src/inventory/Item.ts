@@ -2,13 +2,22 @@
  * 아이템 스탯 정의
  */
 export interface ItemStats {
-  attack?: number;
+  physicalAttack?: number;
+  shieldAttack?: number;
   defense?: number;
   health?: number;
   speed?: number;
   critChance?: number;
   critDamage?: number;
-  [key: string]: number | undefined;  // 커스텀 스탯 허용
+  // 무기 조합 스탯
+  attackSpeed?: number;      // 공격 속도 증가% (원거리+근접 공통)
+  shotSpeed?: number;        // 탄속 증가% (원거리)
+  bulletSize?: number;       // 총알 크기 증가% (원거리)
+  bulletLifetime?: number;   // 총알 수명 증가% (원거리)
+  piercing?: number;         // 관통 추가 (원거리, flat)
+  meleeRange?: number;       // 근접 범위 증가% (근접)
+  meleeAttackSize?: number;  // 근접 이펙트 크기 증가% (근접)
+  [key: string]: number | undefined;
 }
 
 /**
@@ -151,12 +160,20 @@ export class Item {
     const lines: string[] = [];
     const stats = this.stats;
 
-    if (stats.attack) lines.push(`Attack: +${stats.attack}`);
+    if (stats.physicalAttack) lines.push(`Physical ATK: +${stats.physicalAttack}`);
+    if (stats.shieldAttack) lines.push(`Shield ATK: +${stats.shieldAttack}`);
     if (stats.defense) lines.push(`Defense: +${stats.defense}`);
     if (stats.health) lines.push(`Health: +${stats.health}`);
-    if (stats.speed) lines.push(`Speed: +${stats.speed}`);
+    if (stats.speed) lines.push(`Speed: +${stats.speed}%`);
     if (stats.critChance) lines.push(`Crit Chance: +${stats.critChance}%`);
     if (stats.critDamage) lines.push(`Crit Damage: +${stats.critDamage}%`);
+    if (stats.attackSpeed) lines.push(`ATK Speed: +${stats.attackSpeed}%`);
+    if (stats.shotSpeed) lines.push(`Shot Speed: +${stats.shotSpeed}%`);
+    if (stats.bulletSize) lines.push(`Bullet Size: +${stats.bulletSize}%`);
+    if (stats.bulletLifetime) lines.push(`Bullet Life: +${stats.bulletLifetime}%`);
+    if (stats.piercing) lines.push(`Piercing: +${stats.piercing}`);
+    if (stats.meleeRange) lines.push(`Melee Range: +${stats.meleeRange}%`);
+    if (stats.meleeAttackSize) lines.push(`Melee Size: +${stats.meleeAttackSize}%`);
 
     return lines.join('\n');
   }

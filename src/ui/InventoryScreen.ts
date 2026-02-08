@@ -6,6 +6,14 @@ import { EquipmentUI, EquipmentSlotPosition, DEFAULT_EQUIPMENT_LAYOUT, DEFAULT_E
 import { ItemTooltip } from './ItemTooltip';
 import { UITheme } from './UITheme';
 
+// 레이아웃 상수
+const EQUIPMENT_Y_OFFSET = 3.0;
+const INVENTORY_Y_OFFSET = -2.4;
+const DRAG_ICON_SIZE = 0.72;
+const DRAG_ICON_Z = 10;
+const INVENTORY_RENDER_ORDER = 100;
+const DRAG_RENDER_ORDER = 200;
+
 // 텍스처 로더
 const textureLoader = new THREE.TextureLoader();
 const textureCache: Map<string, THREE.Texture> = new Map();
@@ -19,6 +27,7 @@ export interface InventoryScreenConfig {
   showEquipment?: boolean;
   onItemUse?: (item: Item) => boolean; // 아이템 사용 콜백 (성공 시 true 반환)
   onItemHover?: (item: Item | null) => void; // 아이템 호버 콜백
+  onItemDrop?: (item: Item, ndcX: number, ndcY: number) => void; // 아이템 버리기 콜백 (패널 밖 드롭, NDC 좌표)
 }
 
 /**
@@ -54,6 +63,10 @@ export class InventoryScreen extends THREE.Object3D {
   private onItemUse?: (item: Item) => boolean;
   // 아이템 호버 콜백
   private onItemHover?: (item: Item | null) => void;
+  // 아이템 버리기 콜백
+  private onItemDrop?: (item: Item, ndcX: number, ndcY: number) => void;
+  // 장착/해제 잠금 (사망 등)
+  private locked: boolean = false;
 
   constructor(config: InventoryScreenConfig) {
     super();
@@ -61,6 +74,7 @@ export class InventoryScreen extends THREE.Object3D {
     this.inventoryComponent = config.inventoryComponent;
     this.onItemUse = config.onItemUse;
     this.onItemHover = config.onItemHover;
+    this.onItemDrop = config.onItemDrop;
 
     // 툴팁 생성
     this.tooltip = new ItemTooltip({ theme: config.theme });
@@ -88,8 +102,8 @@ export class InventoryScreen extends THREE.Object3D {
 
       // 장비창(위)과 인벤토리(아래) 세로 배치
       // 장비창: 위쪽, 인벤토리: 아래쪽
-      this.equipmentUI.position.set(0, 4.2, 0);
-      this.inventoryUI.position.set(0, -1.6, 0);
+      this.equipmentUI.position.set(0, EQUIPMENT_Y_OFFSET, 0);
+      this.inventoryUI.position.set(0, INVENTORY_Y_OFFSET, 0);
 
       this.add(this.equipmentUI);
     } else {
@@ -100,11 +114,11 @@ export class InventoryScreen extends THREE.Object3D {
     this.add(this.inventoryUI);
 
     // 인벤토리 UI가 다른 UI 위에 렌더링되도록 renderOrder 설정
-    this.setRenderOrder(100);
+    this.setRenderOrder(INVENTORY_RENDER_ORDER);
 
     // 인벤토리 리사이즈 시 renderOrder 재설정
     this.inventoryComponent.inventory.on('resized', () => {
-      this.setRenderOrder(100);
+      this.setRenderOrder(INVENTORY_RENDER_ORDER);
     });
 
     // 기본적으로 숨김
@@ -135,7 +149,7 @@ export class InventoryScreen extends THREE.Object3D {
    * 인벤토리 슬롯 마우스 다운 처리 (드래그 시작)
    */
   handleInventorySlotMouseDown(x: number, y: number, item: Item | null): void {
-    if (item && !this.draggedItem) {
+    if (item && !this.draggedItem && !this.locked) {
       // 아이템 드래그 시작
       this.startDrag(item, true, null, { x, y });
     }
@@ -168,17 +182,19 @@ export class InventoryScreen extends THREE.Object3D {
    * 인벤토리 슬롯 우클릭 처리 (빠른 장착 또는 아이템 사용)
    */
   private handleInventorySlotRightClick(x: number, y: number, item: Item | null): void {
-    if (!item) return;
+    if (!item || this.locked) return;
 
     // 장착 가능한 아이템은 장착
     if (item.equipSlot) {
       this.inventoryComponent.equipItem(item);
-      // 스왑 후 해당 슬롯의 새 아이템으로 툴팁 갱신
+      // 스왑 후 해당 슬롯의 새 아이템으로 툴팁/프리뷰 갱신
       const newItem = this.inventoryComponent.inventory.getItemAt(x, y);
       if (newItem) {
         this.tooltip.setItem(newItem);
+        this.onItemHover?.(newItem);
       } else {
         this.tooltip.hide();
+        this.onItemHover?.(null);
       }
       return;
     }
@@ -187,12 +203,14 @@ export class InventoryScreen extends THREE.Object3D {
     if (item.isStackable && this.onItemUse) {
       const success = this.onItemUse(item);
       if (success) {
-        // 사용 후 해당 슬롯의 아이템으로 툴팁 갱신
+        // 사용 후 해당 슬롯의 아이템으로 툴팁/프리뷰 갱신
         const newItem = this.inventoryComponent.inventory.getItemAt(x, y);
         if (newItem) {
           this.tooltip.setItem(newItem);
+          this.onItemHover?.(newItem);
         } else {
           this.tooltip.hide();
+          this.onItemHover?.(null);
         }
       }
     }
@@ -202,7 +220,7 @@ export class InventoryScreen extends THREE.Object3D {
    * 장비 슬롯 마우스 다운 처리 (드래그 시작)
    */
   handleEquipSlotMouseDown(slotId: string, item: Item | null): void {
-    if (item && !this.draggedItem) {
+    if (item && !this.draggedItem && !this.locked) {
       // 아이템 드래그 시작
       this.startDrag(item, false, slotId, null);
     }
@@ -219,14 +237,16 @@ export class InventoryScreen extends THREE.Object3D {
    * 장비 슬롯 우클릭 처리 (빠른 해제)
    */
   private handleEquipSlotRightClick(slotId: string, item: Item | null): void {
-    if (item) {
+    if (item && !this.locked) {
       this.inventoryComponent.unequipItem(slotId);
-      // 해제 후 장비 슬롯의 새 아이템으로 툴팁 갱신
+      // 해제 후 장비 슬롯의 새 아이템으로 툴팁/프리뷰 갱신
       const newItem = this.inventoryComponent.equipment?.getEquipped(slotId) ?? null;
       if (newItem) {
         this.tooltip.setItem(newItem);
+        this.onItemHover?.(newItem);
       } else {
         this.tooltip.hide();
+        this.onItemHover?.(null);
       }
     }
   }
@@ -234,7 +254,7 @@ export class InventoryScreen extends THREE.Object3D {
   /**
    * 마우스 업 처리 (드롭)
    */
-  handleMouseUp(): void {
+  handleMouseUp(ndcX: number = 0, ndcY: number = 0): void {
     if (!this.draggedItem) return;
 
     // 프리뷰 슬롯이 있고 드롭 가능하면 드롭 실행
@@ -244,6 +264,15 @@ export class InventoryScreen extends THREE.Object3D {
       } else if (this.previewSlot.type === 'equipment') {
         this.dropAtEquipment(this.previewSlot.slotId);
       }
+    } else if (!this.previewSlot && this.onItemDrop && !this.locked) {
+      // 패널 밖에 드롭 → 아이템 버리기
+      const item = this.draggedItem;
+      if (this.draggedFromInventory) {
+        this.inventoryComponent.inventory.removeItem(item);
+      } else if (this.draggedFromSlot) {
+        this.inventoryComponent.equipment?.unequip(this.draggedFromSlot);
+      }
+      this.onItemDrop(item, ndcX, ndcY);
     }
 
     this.clearDrag();
@@ -397,10 +426,8 @@ export class InventoryScreen extends THREE.Object3D {
       opacity: 0.8,
     });
     this.dragIcon = new THREE.Sprite(spriteMaterial);
-    // 슬롯 크기에 맞게 아이콘 크기 설정 (slotSize=80, PX=0.01 -> 0.8)
-    const iconSize = 0.72;
-    this.dragIcon.scale.set(iconSize, iconSize, 1);
-    this.dragIcon.renderOrder = 200; // 다른 UI 위에 표시
+    this.dragIcon.scale.set(DRAG_ICON_SIZE, DRAG_ICON_SIZE, 1);
+    this.dragIcon.renderOrder = DRAG_RENDER_ORDER;
     this.add(this.dragIcon);
   }
 
@@ -423,7 +450,7 @@ export class InventoryScreen extends THREE.Object3D {
       // InventoryScreen의 로컬 좌표로 변환
       const localX = worldX - this.position.x;
       const localY = worldY - this.position.y;
-      this.dragIcon.position.set(localX, localY, 10);
+      this.dragIcon.position.set(localX, localY, DRAG_ICON_Z);
     }
   }
 
@@ -465,6 +492,13 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
+   * 장착/해제/드래그 잠금 (사망 등)
+   */
+  setLocked(locked: boolean): void {
+    this.locked = locked;
+  }
+
+  /**
    * 화면 표시/숨김 토글
    */
   toggle(): void {
@@ -476,7 +510,7 @@ export class InventoryScreen extends THREE.Object3D {
     this.visible = visible;
     if (visible) {
       // 표시될 때 renderOrder 재설정 (three-mesh-ui 내부 메시가 동적으로 생성되므로)
-      this.setRenderOrder(100);
+      this.setRenderOrder(INVENTORY_RENDER_ORDER);
     } else {
       this.clearDrag();
       this.clearHover();
@@ -485,6 +519,27 @@ export class InventoryScreen extends THREE.Object3D {
 
   isVisible(): boolean {
     return this._visible;
+  }
+
+  /**
+   * 인벤토리 그리드의 전체 너비 반환
+   */
+  getTotalWidth(): number {
+    return this.inventoryUI.getTotalWidth();
+  }
+
+  /**
+   * 장비창 중심의 로컬 Y 오프셋 반환
+   */
+  getEquipmentCenterYOffset(): number {
+    return this.equipmentUI ? EQUIPMENT_Y_OFFSET : 0;
+  }
+
+  /**
+   * 장비 슬롯 라벨 이름 갱신 (로컬라이징용)
+   */
+  updateEquipSlotNames(names: Record<string, string>): void {
+    this.equipmentUI?.updateSlotNames(names);
   }
 
   /**

@@ -97,6 +97,7 @@ export class InventoryGridUI extends THREE.Object3D {
 
     // 인벤토리 변경 이벤트 구독
     this.inventory.on('changed', () => this.refresh());
+    this.inventory.on('resized', () => this.rebuild());
   }
 
   private createSlots(): void {
@@ -243,6 +244,11 @@ export class InventoryGridUI extends THREE.Object3D {
           slot.container.setColor(slotColor);
           slot.container.setBorder(2 * PX, rarityColor);
           slot.container.setOpacity(1);
+        } else if (this.inventory.isSlotLocked(x, y)) {
+          // 잠긴 슬롯 (사용 불가)
+          slot.container.setColor(0x1a1a1a);
+          slot.container.setBorder(0, 0x000000);
+          slot.container.setOpacity(0.4);
         } else {
           // 빈 슬롯
           slot.container.setColor(slotEmptyColor);
@@ -336,9 +342,15 @@ export class InventoryGridUI extends THREE.Object3D {
       const rarityColor = this.theme.rarityColors[item.rarity] ?? this.theme.rarityColors.common;
       slot.container.setColor(this.theme.slotColor);
       slot.container.setBorder(2 * PX, rarityColor);
+      slot.container.setOpacity(1);
+    } else if (this.inventory.isSlotLocked(x, y)) {
+      slot.container.setColor(0x1a1a1a);
+      slot.container.setBorder(0, 0x000000);
+      slot.container.setOpacity(0.4);
     } else {
       slot.container.setColor(this.theme.slotEmptyColor);
       slot.container.setBorder(0, 0x000000);
+      slot.container.setOpacity(1);
     }
   }
 
@@ -410,6 +422,63 @@ export class InventoryGridUI extends THREE.Object3D {
         }
       }
     }
+  }
+
+  /**
+   * 인벤토리 크기 변경 시 UI 완전 재구성
+   */
+  rebuild(): void {
+    // 기존 슬롯 정리
+    for (const row of this.slots) {
+      for (const slot of row) {
+        if (slot.itemIcon) slot.itemIcon.dispose();
+        if (slot.quantityText) slot.quantityText.dispose();
+        if (slot.quantityBg) slot.quantityBg.dispose();
+        slot.container.dispose();
+      }
+    }
+    this.slots = [];
+    this.legendaryGlowSlots = [];
+    this.hoveredSlot = null;
+    this.selectedSlot = null;
+    this.dropPreviewSlots = [];
+
+    // 컨테이너 내용 제거
+    this.container.dispose();
+    this.remove(this.container);
+    this.background9Slice.dispose();
+    this.remove(this.background9Slice);
+
+    // 새 크기로 재생성
+    const { width, height } = this.inventory;
+    const { slotSize, slotGap, padding } = this.theme;
+
+    const totalWidth = width * slotSize + (width + 1) * slotGap + padding * 2;
+    const totalHeight = height * slotSize + (height + 1) * slotGap + padding * 2;
+
+    this.background9Slice = new UI9Slice({
+      width: totalWidth * PX,
+      height: totalHeight * PX,
+      texture: 'ui/panel-031.png',
+      textureSize: { width: 48, height: 48 },
+      sliceBorders: { left: 15, right: 15, top: 15, bottom: 15 },
+    });
+    this.add(this.background9Slice);
+
+    this.container = new UIPanel({
+      width: totalWidth * PX,
+      height: totalHeight * PX,
+      padding: padding * PX,
+      gap: slotGap * PX,
+      direction: 'vertical',
+      justify: 'center',
+      align: 'center',
+    });
+    this.container.position.z = 0.01;
+    this.add(this.container);
+
+    this.createSlots();
+    this.refresh();
   }
 
   dispose(): void {

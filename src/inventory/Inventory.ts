@@ -6,6 +6,7 @@ export interface InventoryEvents {
   itemRemoved: { item: Item };
   itemMoved: { item: Item; fromX: number; fromY: number; toX: number; toY: number };
   changed: undefined;
+  resized: { width: number; height: number };
 }
 
 export interface InventoryConfig {
@@ -18,24 +19,45 @@ export interface InventoryConfig {
  * 아이템이 여러 칸을 차지할 수 있음
  */
 export class Inventory extends EventEmitter<InventoryEvents> {
-  readonly width: number;
-  readonly height: number;
+  private _width: number;
+  private _height: number;
+
+  get width(): number { return this._width; }
+  get height(): number { return this._height; }
 
   // 그리드: 각 셀이 어떤 아이템을 참조하는지 (null = 빈칸)
   private grid: (Item | null)[][];
   // 인벤토리에 있는 모든 아이템 (중복 없음)
   private items: Set<Item> = new Set();
 
+  /** 사용 가능한 슬롯 수 (마지막 행에서 잠긴 슬롯 제외) */
+  private _usableSlots: number;
+
+  /** 총 그리드 슬롯 수 (width * height) */
+  get totalSlots(): number { return this._width * this._height; }
+
+  /** 사용 가능한 슬롯 수 */
+  get usableSlots(): number { return this._usableSlots; }
+
   constructor(config: InventoryConfig) {
     super();
-    this.width = config.width;
-    this.height = config.height;
+    this._width = config.width;
+    this._height = config.height;
+    this._usableSlots = this._width * this._height;
 
     // 그리드 초기화
     this.grid = [];
-    for (let y = 0; y < this.height; y++) {
-      this.grid[y] = new Array(this.width).fill(null);
+    for (let y = 0; y < this._height; y++) {
+      this.grid[y] = new Array(this._width).fill(null);
     }
+  }
+
+  /**
+   * 특정 슬롯이 잠겨있는지 확인 (usableSlots 초과 영역)
+   */
+  isSlotLocked(x: number, y: number): boolean {
+    const slotIndex = y * this._width + x;
+    return slotIndex >= this._usableSlots;
   }
 
   /**
@@ -47,9 +69,12 @@ export class Inventory extends EventEmitter<InventoryEvents> {
       return false;
     }
 
-    // 해당 영역이 비어있거나 같은 아이템인지 확인
+    // 해당 영역이 비어있거나 같은 아이템인지, 잠금 상태가 아닌지 확인
     for (let dy = 0; dy < item.height; dy++) {
       for (let dx = 0; dx < item.width; dx++) {
+        if (this.isSlotLocked(x + dx, y + dy)) {
+          return false;
+        }
         const cell = this.grid[y + dy][x + dx];
         if (cell !== null && cell !== item) {
           return false;
@@ -230,6 +255,61 @@ export class Inventory extends EventEmitter<InventoryEvents> {
         }
       }
     }
+  }
+
+  /**
+   * 인벤토리 크기 변경 (기존 아이템 유지)
+   * 새 크기가 더 작아서 아이템이 잘리는 경우는 허용하지 않음
+   */
+  resize(newWidth: number, newHeight: number): void {
+    if (newWidth === this._width && newHeight === this._height) return;
+    if (newWidth < this._width || newHeight < this._height) {
+      // 축소 시 기존 아이템이 잘리지 않는지 확인
+      for (const item of this.items) {
+        if (item.gridX + item.width > newWidth || item.gridY + item.height > newHeight) {
+          console.warn('Cannot resize: items would be out of bounds');
+          return;
+        }
+      }
+    }
+
+    const oldHeight = this._height;
+    this._width = newWidth;
+    this._height = newHeight;
+
+    // 그리드 행 추가/제거
+    if (newHeight > oldHeight) {
+      for (let y = oldHeight; y < newHeight; y++) {
+        this.grid[y] = new Array(newWidth).fill(null);
+      }
+    } else if (newHeight < oldHeight) {
+      this.grid.length = newHeight;
+    }
+
+    // 기존 행의 너비 조정
+    for (let y = 0; y < Math.min(oldHeight, newHeight); y++) {
+      const oldRow = this.grid[y];
+      if (oldRow.length !== newWidth) {
+        const newRow = new Array(newWidth).fill(null);
+        for (let x = 0; x < Math.min(oldRow.length, newWidth); x++) {
+          newRow[x] = oldRow[x];
+        }
+        this.grid[y] = newRow;
+      }
+    }
+
+    this.emit('resized', { width: newWidth, height: newHeight });
+    this.emit('changed', undefined);
+  }
+
+  /**
+   * 슬롯 수 기반 리사이즈 (가로 고정, 세로 자동 계산)
+   * 마지막 행의 초과 슬롯은 잠금 처리
+   */
+  resizeBySlots(totalSlots: number): void {
+    this._usableSlots = totalSlots;
+    const newHeight = Math.ceil(totalSlots / this._width);
+    this.resize(this._width, newHeight);
   }
 
   /**

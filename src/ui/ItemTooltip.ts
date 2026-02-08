@@ -140,7 +140,7 @@ export class ItemTooltip extends THREE.Object3D {
         offHand: 'Off Hand',
         ring: 'Ring',
         amulet: 'Amulet',
-        weapon: 'Ranged Weapon',
+        rangedWeapon: 'Ranged Weapon',
         meleeWeapon: 'Melee Weapon',
       };
       return slotNames[item.equipSlot] || item.equipSlot;
