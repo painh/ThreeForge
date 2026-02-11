@@ -69,7 +69,7 @@ export class ItemTooltip extends THREE.Object3D {
   /**
    * 아이템 정보로 툴팁 업데이트
    */
-  setItem(item: Item | null): void {
+  setItem(item: Item | null, extraLines?: TooltipLine[]): void {
     if (!item) {
       this.hide();
       return;
@@ -116,6 +116,12 @@ export class ItemTooltip extends THREE.Object3D {
         color: 0xaaaaaa,
         fontSize: 10 * PX * TOOLTIP_SCALE,
       });
+    }
+
+    // 추가 라인 (가격 등)
+    if (extraLines && extraLines.length > 0) {
+      lines.push({ text: '─────────────', color: 0x444444, fontSize: 8 * PX * TOOLTIP_SCALE });
+      lines.push(...extraLines);
     }
 
     // 테두리 색상 변경
