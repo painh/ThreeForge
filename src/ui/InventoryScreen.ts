@@ -5,6 +5,7 @@ import { InventoryGridUI } from './InventoryGridUI';
 import { EquipmentUI, EquipmentSlotPosition, DEFAULT_EQUIPMENT_LAYOUT, DEFAULT_EQUIPMENT_COLS, DEFAULT_EQUIPMENT_ROWS } from './EquipmentUI';
 import { ItemTooltip } from './ItemTooltip';
 import { UITheme } from './UITheme';
+import { UISceneLoader } from '../../../three-troika-ui/src/UISceneLoader';
 
 // 레이아웃 상수
 const EQUIPMENT_Y_OFFSET = 3.0;
@@ -28,6 +29,7 @@ export interface InventoryScreenConfig {
   onItemUse?: (item: Item) => boolean; // 아이템 사용 콜백 (성공 시 true 반환)
   onItemHover?: (item: Item | null) => void; // 아이템 호버 콜백
   onItemDrop?: (item: Item, ndcX: number, ndcY: number) => void; // 아이템 버리기 콜백 (패널 밖 드롭, NDC 좌표)
+  onClose?: () => void; // 닫기 버튼 콜백
 }
 
 /**
@@ -65,6 +67,13 @@ export class InventoryScreen extends THREE.Object3D {
   private onItemHover?: (item: Item | null) => void;
   // 아이템 버리기 콜백
   private onItemDrop?: (item: Item, ndcX: number, ndcY: number) => void;
+  // 닫기 콜백
+  private onClose?: () => void;
+  // JSON 씬 프레임 (배경 + 닫기 버튼)
+  private frameRoot: THREE.Object3D | null = null;
+  private closeBtnRoot: THREE.Object3D | null = null;
+  // 닫기 버튼 메시 캐시 (getInteractiveObjects 핫패스 최적화)
+  private closeBtnMeshes: THREE.Object3D[] = [];
   // 장착/해제 잠금 (사망 등)
   private locked: boolean = false;
 
@@ -75,6 +84,7 @@ export class InventoryScreen extends THREE.Object3D {
     this.onItemUse = config.onItemUse;
     this.onItemHover = config.onItemHover;
     this.onItemDrop = config.onItemDrop;
+    this.onClose = config.onClose;
 
     // 툴팁 생성
     this.tooltip = new ItemTooltip({ theme: config.theme });
@@ -543,12 +553,47 @@ export class InventoryScreen extends THREE.Object3D {
   }
 
   /**
+   * JSON 씬 파일로부터 인벤토리 프레임(배경 + 닫기 버튼)을 로드합니다.
+   */
+  async initFromScene(): Promise<void> {
+    try {
+      const { root, ids } = await UISceneLoader.load('/ui-scenes/game/inventory.json');
+      const frameObj = root as unknown as THREE.Object3D;
+      this.add(frameObj);
+      this.frameRoot = frameObj;
+
+      const closeBtn = ids.get('close_btn');
+      if (closeBtn) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (closeBtn as unknown as any).isCloseBtn = true;
+        this.closeBtnRoot = closeBtn as unknown as THREE.Object3D;
+        // 닫기 버튼 메시 미리 캐시 (매 프레임 traverse 방지)
+        this.closeBtnRoot.traverse(child => {
+          if ((child as THREE.Mesh).isMesh) this.closeBtnMeshes.push(child);
+        });
+      }
+    } catch (e) {
+      console.warn('[InventoryScreen] initFromScene failed:', e);
+    }
+  }
+
+  /**
+   * 닫기 버튼 클릭 처리 (외부에서 호출)
+   */
+  handleCloseClick(): void {
+    this.onClose?.();
+  }
+
+  /**
    * 레이캐스트용 모든 인터랙티브 객체
    */
   getInteractiveObjects(): THREE.Object3D[] {
     const objects = this.inventoryUI.getInteractiveObjects();
     if (this.equipmentUI) {
       objects.push(...this.equipmentUI.getInteractiveObjects());
+    }
+    if (this.closeBtnMeshes.length > 0) {
+      objects.push(...this.closeBtnMeshes);
     }
     return objects;
   }
@@ -587,5 +632,19 @@ export class InventoryScreen extends THREE.Object3D {
     this.inventoryUI.dispose();
     this.equipmentUI?.dispose();
     this.tooltip.dispose();
+    if (this.frameRoot) {
+      this.remove(this.frameRoot);
+      this.frameRoot.traverse(child => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.isMesh) {
+          mesh.geometry?.dispose();
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach(m => m?.dispose());
+        }
+      });
+      this.frameRoot = null;
+      this.closeBtnRoot = null;
+      this.closeBtnMeshes = [];
+    }
   }
 }
